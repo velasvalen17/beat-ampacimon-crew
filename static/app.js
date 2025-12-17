@@ -8,6 +8,8 @@ let currentSlot = null;
 let currentRecommendations = [];
 let currentAnalysisData = null;
 let selectedComparisonRecIndex = 0;
+let lastAnalysisGameweek = null;
+let lastAnalysisRosterSignature = null;
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
@@ -219,6 +221,10 @@ function selectPlayer(player) {
     // Add to roster
     currentRoster[position][index] = player;
     
+    // Clear cached analysis since roster changed
+    lastAnalysisRosterSignature = null;
+    currentAnalysisData = null;
+    
     // Update UI
     updatePlayerSlot(position, index, player);
     updateBudgetSummary();
@@ -249,6 +255,10 @@ function updatePlayerSlot(position, index, player) {
 // Remove player from slot
 function removePlayer(position, index) {
     currentRoster[position][index] = null;
+    
+    // Clear cached analysis since roster changed
+    lastAnalysisRosterSignature = null;
+    currentAnalysisData = null;
     
     const container = document.getElementById(`${position}-roster`);
     const slot = container.children[index];
@@ -296,6 +306,16 @@ async function analyzeRoster() {
     const availableBudget = parseFloat(document.getElementById('available-budget').value) || 0;
     const selectedGameweek = parseInt(document.getElementById('gameweek-selector').value) || 9;
     const playerIds = allPlayers.map(p => p.player_id);
+    const rosterSignature = playerIds.sort().join(',');
+    
+    // Check if we already have analysis for this roster and gameweek
+    if (currentAnalysisData && 
+        lastAnalysisGameweek === selectedGameweek && 
+        lastAnalysisRosterSignature === rosterSignature) {
+        // Use cached analysis
+        displayAnalysis(currentAnalysisData);
+        return;
+    }
     
     const analysisContent = document.getElementById('analysis-content');
     analysisContent.innerHTML = '<div class="loading"><div class="spinner"></div><p>Analyzing your roster...</p></div>';
@@ -314,6 +334,11 @@ async function analyzeRoster() {
         });
         
         const data = await response.json();
+        
+        // Store the analysis state
+        lastAnalysisGameweek = selectedGameweek;
+        lastAnalysisRosterSignature = rosterSignature;
+        
         displayAnalysis(data);
     } catch (error) {
         console.error('Error analyzing roster:', error);
@@ -995,6 +1020,13 @@ function switchTab(tabName) {
     if (tabName === 'comparison') {
         if (currentAnalysisData && currentAnalysisData.recommendations && currentAnalysisData.recommendations.length > 0) {
             populateComparisonView(currentAnalysisData);
+        } else {
+            // Show message if no analysis data
+            const currentScheduleDiv = document.getElementById('current-schedule');
+            const recommendedScheduleDiv = document.getElementById('recommended-schedule');
+            const message = '<p class="schedule-placeholder">👈 Run analysis first to compare schedules</p>';
+            currentScheduleDiv.innerHTML = message;
+            recommendedScheduleDiv.innerHTML = message;
         }
     }
     
