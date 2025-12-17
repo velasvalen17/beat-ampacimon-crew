@@ -19,6 +19,27 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+def get_team_timezone(team_abbr):
+    """Get the timezone for a team based on their city"""
+    # Map team abbreviations to their home city timezones
+    eastern_teams = ['BOS', 'BKN', 'NYK', 'PHI', 'TOR', 'CHI', 'CLE', 'DET', 'IND', 'MIL', 
+                     'ATL', 'CHA', 'MIA', 'ORL', 'WAS']
+    central_teams = ['DAL', 'HOU', 'MEM', 'NOP', 'SAS', 'MIN', 'OKC']
+    mountain_teams = ['DEN', 'UTA']
+    pacific_teams = ['GSW', 'LAC', 'LAL', 'PHX', 'SAC', 'POR']
+    
+    if team_abbr in eastern_teams:
+        return ZoneInfo('America/New_York')
+    elif team_abbr in central_teams:
+        return ZoneInfo('America/Chicago')
+    elif team_abbr in mountain_teams:
+        return ZoneInfo('America/Denver')
+    elif team_abbr in pacific_teams:
+        return ZoneInfo('America/Los_Angeles')
+    else:
+        # Default to Eastern if unknown
+        return ZoneInfo('America/New_York')
+
 def get_fantasy_gamedays():
     """Return fantasy gameday schedule with deadlines in Madrid timezone"""
     madrid_tz = ZoneInfo('Europe/Madrid')
@@ -555,47 +576,43 @@ def get_game_schedule():
         madrid_tz = ZoneInfo('Europe/Madrid')
         
         for game in games:
-            # Parse game datetime (assume games table has date in YYYY-MM-DD)
+            # Parse game datetime from database (stored in US venue local time)
             game_date_str = game['game_date']
             game_time_str = game['game_time'] or '00:00'
             
-            # Combine date and time and make it timezone-aware
+            # Get the venue timezone (home team determines venue)
+            home_abbr = game['home_abbr']
+            venue_tz = get_team_timezone(home_abbr)
+            
+            # Parse datetime in venue's local timezone
             try:
-                game_dt = datetime.strptime(f"{game_date_str} {game_time_str}", '%Y-%m-%d %H:%M')
-                game_dt = game_dt.replace(tzinfo=madrid_tz)
+                game_dt_naive = datetime.strptime(f"{game_date_str} {game_time_str}", '%Y-%m-%d %H:%M')
+                # Make timezone-aware in venue timezone
+                game_dt_venue = game_dt_naive.replace(tzinfo=venue_tz)
+                # Convert to Madrid timezone for comparison with deadlines
+                game_dt = game_dt_venue.astimezone(madrid_tz)
             except:
-                game_dt = datetime.strptime(game_date_str, '%Y-%m-%d')
-                game_dt = game_dt.replace(tzinfo=madrid_tz)
+                game_dt_naive = datetime.strptime(game_date_str, '%Y-%m-%d')
+                game_dt_venue = game_dt_naive.replace(tzinfo=venue_tz)
+                game_dt = game_dt_venue.astimezone(madrid_tz)
             
             # Find which fantasy gameday this game belongs to
-            # Deadline is when you lock lineup. Games between current and next deadline are for this gameday.
-            # Exception: Day 1 also includes games shortly before its deadline
+            # Rule: Deadline is ~30 min before first game. Games tip off AFTER deadline.
+            # A game belongs to the gameday whose deadline it comes after.
             fantasy_gameday_label = None
             
             for i, (gw, day_num, deadline) in enumerate(gameweek_gamedays):
-                prev_deadline = gameweek_gamedays[i-1][2] if i > 0 else None
                 next_deadline = gameweek_gamedays[i+1][2] if i+1 < len(gameweek_gamedays) else None
                 
-                # Determine the start window for this gameday
-                if i == 0:
-                    # First gameday: include games starting a few hours before deadline
-                    start_window = deadline - timedelta(hours=6)
-                else:
-                    # Other gamedays: start from previous deadline
-                    start_window = prev_deadline
-                
-                # Determine the end window
-                end_window = next_deadline if next_deadline else None
-                
-                # Check if game falls in this window
-                if end_window is None:
-                    # Last gameday: all games from start window onwards
-                    if game_dt >= start_window:
+                # Games belong to this gameday if they occur between this deadline and next deadline
+                if next_deadline is None:
+                    # Last gameday: all games after this deadline
+                    if game_dt >= deadline:
                         fantasy_gameday_label = f"GW{gw} Day {day_num}"
                         break
                 else:
-                    # Games from start to end window
-                    if game_dt >= start_window and game_dt < end_window:
+                    # Games from this deadline (inclusive) up to next deadline (exclusive)
+                    if game_dt >= deadline and game_dt < next_deadline:
                         fantasy_gameday_label = f"GW{gw} Day {day_num}"
                         break
             
