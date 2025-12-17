@@ -87,19 +87,33 @@ def index():
 
 @app.route('/api/players')
 def get_players():
-    """Get all players with salaries"""
+    """Get all players with salaries and recent fantasy averages"""
     conn = get_db_connection()
     cur = conn.cursor()
     
+    # Get players with recent fantasy stats (last 7 days)
     cur.execute("""
+        WITH recent_stats AS (
+            SELECT 
+                pgs.player_id,
+                AVG(pgs.points + 1.2 * pgs.rebounds + 1.5 * pgs.assists + 
+                    3 * pgs.steals + 3 * pgs.blocks - pgs.turnovers) as fantasy_avg
+            FROM player_game_stats pgs
+            JOIN games g ON pgs.game_id = g.game_id
+            WHERE g.game_date >= date('now', '-7 days')
+            GROUP BY pgs.player_id
+            HAVING COUNT(*) >= 1
+        )
         SELECT 
             p.player_id,
             p.player_name,
             p.position,
             p.salary,
-            t.team_abbreviation as team
+            t.team_abbreviation as team,
+            COALESCE(rs.fantasy_avg, 0) as fantasy_avg
         FROM players p
         JOIN teams t ON p.team_id = t.team_id
+        LEFT JOIN recent_stats rs ON p.player_id = rs.player_id
         WHERE p.salary IS NOT NULL
         ORDER BY p.salary DESC
     """)

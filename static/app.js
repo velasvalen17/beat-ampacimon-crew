@@ -5,6 +5,8 @@ let currentRoster = {
     frontcourt: [null, null, null, null, null]
 };
 let currentSlot = null;
+let currentRecommendations = [];
+let currentAnalysisData = null;
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
@@ -167,10 +169,11 @@ function displayPlayerList(players) {
     players.forEach(player => {
         const item = document.createElement('div');
         item.className = 'player-item';
+        const fpAvg = player.fantasy_avg ? player.fantasy_avg.toFixed(1) : 'N/A';
         item.innerHTML = `
             <div class="player-item-name">${player.player_name}</div>
             <div class="player-item-info">
-                ${player.team} | ${player.position} | $${player.salary}M
+                ${player.team} | ${player.position} | $${player.salary}M | ${fpAvg} FP/G
             </div>
         `;
         
@@ -219,10 +222,11 @@ function updatePlayerSlot(position, index, player) {
     const slot = container.children[index];
     
     slot.classList.add('filled');
+    const fpAvg = player.fantasy_avg ? player.fantasy_avg.toFixed(1) : 'N/A';
     slot.innerHTML = `
         <div class="player-info">
             <div class="player-name">${player.player_name}</div>
-            <div class="player-details">${player.team} | ${player.position}</div>
+            <div class="player-details">${player.team} | ${player.position} | ${fpAvg} FP/G</div>
         </div>
         <div class="player-salary">$${player.salary}M</div>
         <button class="remove-btn" onclick="removePlayer('${position}', ${index})">×</button>
@@ -387,6 +391,8 @@ function displayAnalysis(data) {
             }
             html += '</div>';
             
+            html += `<button class="view-recommendation-btn" onclick="viewRecommendationDetails(${index})">📊 View Schedule & Roster Details</button>`;
+            
             html += '</div>';
         });
     } else {
@@ -397,9 +403,144 @@ function displayAnalysis(data) {
     
     analysisContent.innerHTML = html;
     
+    // Store recommendations and analysis data globally
+    currentRecommendations = data.recommendations || [];
+    currentAnalysisData = data;
+    
     // Also populate the comparison view with recommended roster
     if (data.recommendations && data.recommendations.length > 0) {
         populateComparisonView(data);
+    }
+}
+
+// View recommendation details in a modal or expanded view
+async function viewRecommendationDetails(recIndex) {
+    if (!currentRecommendations || recIndex >= currentRecommendations.length) {
+        alert('Recommendation not found');
+        return;
+    }
+    
+    const rec = currentRecommendations[recIndex];
+    const selectedGameweek = parseInt(document.getElementById('gameweek-selector').value) || 9;
+    
+    // Build recommended roster
+    const dropsIds = new Set(rec.drops.map(d => d.player_id));
+    const currentPlayerIds = [...currentRoster.backcourt, ...currentRoster.frontcourt]
+        .filter(p => p !== null && p !== undefined)
+        .map(p => p.player_id);
+    
+    const remainingIds = currentPlayerIds.filter(id => !dropsIds.has(id));
+    const recommendedIds = [...remainingIds, ...rec.adds.map(a => a.player_id)];
+    
+    // Get schedule for recommended roster
+    try {
+        const response = await fetch('/api/game_schedule', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                player_ids: recommendedIds,
+                gameweek: selectedGameweek
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Build player roster list with FA averages
+        const rosterList = [];
+        currentRoster.backcourt.concat(currentRoster.frontcourt).forEach(p => {
+            if (p && !dropsIds.has(p.player_id)) {
+                rosterList.push(p);
+            }
+        });
+        rec.adds.forEach(add => {
+            rosterList.push({
+                player_id: add.player_id,
+                player_name: add.name,
+                position: add.position,
+                team: add.team || '',
+                salary: add.salary,
+                fantasy_avg: add.fantasy_avg
+            });
+        });
+        
+        // Build HTML for modal/expanded view
+        let html = `
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; max-width: 900px; margin: 20px auto;">
+                <h3 style="color: #0a2540; margin-bottom: 15px;">📊 Option ${recIndex + 1} - Detailed View</h3>
+                
+                <div style="background: #fff3cd; padding: 12px; border-radius: 6px; margin-bottom: 20px;">
+                    <p style="margin: 0; color: #856404;"><strong>Transaction Summary:</strong></p>
+                    <p style="margin: 5px 0 0 0;">🔴 OUT: ${rec.drops.map(d => d.name).join(', ')}</p>
+                    <p style="margin: 5px 0 0 0;">🟢 IN: ${rec.adds.map(a => a.name).join(', ')}</p>
+                </div>
+                
+                <h4 style="margin-bottom: 10px;">Recommended Roster (10 Players)</h4>
+                <div style="background: white; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="background: #0a2540; color: white;">
+                                <th style="padding: 8px; text-align: left;">Player</th>
+                                <th style="padding: 8px;">Position</th>
+                                <th style="padding: 8px;">Team</th>
+                                <th style="padding: 8px;">Salary</th>
+                                <th style="padding: 8px;">FP/G</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+        `;
+        
+        rosterList.forEach(player => {
+            const isNew = rec.adds.some(a => a.player_id === player.player_id);
+            const rowStyle = isNew ? 'background: #d1fae5;' : '';
+            const fpAvg = player.fantasy_avg ? player.fantasy_avg.toFixed(1) : 'N/A';
+            html += `
+                <tr style="${rowStyle}">
+                    <td style="padding: 8px; border-top: 1px solid #e2e8f0;">${player.player_name} ${isNew ? '🟢' : ''}</td>
+                    <td style="padding: 8px; border-top: 1px solid #e2e8f0; text-align: center;">${player.position}</td>
+                    <td style="padding: 8px; border-top: 1px solid #e2e8f0; text-align: center;">${player.team}</td>
+                    <td style="padding: 8px; border-top: 1px solid #e2e8f0; text-align: center;">$${player.salary}M</td>
+                    <td style="padding: 8px; border-top: 1px solid #e2e8f0; text-align: center;">${fpAvg}</td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                        </tbody>
+                    </table>
+                </div>
+                
+                <h4 style="margin-bottom: 10px;">Gameweek ${selectedGameweek} Schedule</h4>
+        `;
+        
+        html += buildScheduleHTML(data, rosterList);
+        
+        html += `
+                <button onclick="document.getElementById('rec-details-modal').style.display='none'" 
+                        style="margin-top: 20px; padding: 10px 20px; background: #0a2540; color: white; border: none; border-radius: 6px; cursor: pointer;">
+                    Close
+                </button>
+            </div>
+        `;
+        
+        // Show in modal
+        let modal = document.getElementById('rec-details-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'rec-details-modal';
+            modal.className = 'modal';
+            document.body.appendChild(modal);
+        }
+        
+        modal.innerHTML = `<div class="modal-content" style="max-width: 950px; max-height: 90vh; overflow-y: auto;">${html}</div>`;
+        modal.style.display = 'block';
+        
+    } catch (error) {
+        console.error('Error loading recommendation details:', error);
+        alert('Failed to load recommendation details');
     }
 }
 
