@@ -856,6 +856,61 @@ def get_game_schedule():
                     'players': game_players
                 })
         
+        # Calculate projected fantasy points per day using last 7 games average
+        for day_label, day_data in games_by_day.items():
+            # Get unique player IDs playing on this day
+            players_on_day = set()
+            for game in day_data['games']:
+                for player in game['players']:
+                    players_on_day.add(player['player_id'])
+            
+            # Calculate projected FP for players on this day
+            day_data['projected_fp'] = 0
+            day_data['player_count'] = len(players_on_day)
+            day_data['player_projections'] = []
+            
+            if players_on_day:
+                # Get recent stats for these players
+                player_ids_str = ','.join([str(pid) for pid in players_on_day])
+                recent_stats_query = f"""
+                    WITH recent_stats AS (
+                        SELECT 
+                            player_id,
+                            fantasy_points,
+                            ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY game_date DESC) as rn
+                        FROM player_game_stats
+                        WHERE player_id IN ({player_ids_str})
+                    )
+                    SELECT 
+                        player_id,
+                        AVG(fantasy_points) as avg_fp
+                    FROM recent_stats
+                    WHERE rn <= 7
+                    GROUP BY player_id
+                """
+                
+                player_avgs = {}
+                for row in conn.execute(recent_stats_query).fetchall():
+                    player_avgs[row['player_id']] = row['avg_fp']
+                
+                # Calculate total projected FP and store individual projections
+                for player_id in players_on_day:
+                    avg_fp = player_avgs.get(player_id, 0)
+                    day_data['projected_fp'] += avg_fp
+                    
+                    # Get player name from players_dict
+                    if player_id in players_dict:
+                        day_data['player_projections'].append({
+                            'player_id': player_id,
+                            'player_name': players_dict[player_id]['player_name'],
+                            'team': players_dict[player_id]['team'],
+                            'projected_fp': round(avg_fp, 1)
+                        })
+                
+                # Sort players by projected FP descending
+                day_data['player_projections'].sort(key=lambda x: x['projected_fp'], reverse=True)
+                day_data['projected_fp'] = round(day_data['projected_fp'], 1)
+        
         return jsonify({'games_by_day': games_by_day})
     
     except Exception as e:

@@ -934,3 +934,67 @@ header .tagline {
     border: 1px solid #e0e0e0;
     white-space: nowrap;
 }
+
+/* Projected FP tooltip styles */
+.projected-fp {
+    position: relative;
+    cursor: help;
+    text-align: center;
+}
+
+.fp-value {
+    font-weight: 600;
+    color: #667eea;
+    font-size: 1.05rem;
+}
+
+.fp-tooltip {
+    display: none;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 100%;
+    margin-bottom: 8px;
+    background: rgba(0, 0, 0, 0.95);
+    color: white;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    min-width: 250px;
+}
+
+.fp-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: rgba(0, 0, 0, 0.95);
+}
+
+.projected-fp:hover .fp-tooltip {
+    display: block;
+}
+
+.fp-tooltip-header {
+    font-weight: 600;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    color: #a78bfa;
+}
+
+.fp-tooltip-row {
+    padding: 4px 0;
+    display: flex;
+    justify-content: space-between;
+    gap: 15px;
+}
+
+.fp-tooltip-row strong {
+    color: #c4b5fd;
+}

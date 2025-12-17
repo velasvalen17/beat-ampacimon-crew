@@ -846,6 +846,11 @@ function buildScheduleHTML(data, playersList, recommendation = null) {
         html += '</div>';
     }
     
+    // Calculate total projected FP across all days
+    const totalProjectedFP = Object.values(data.games_by_day).reduce((sum, dayData) => {
+        return sum + (dayData.projected_fp || 0);
+    }, 0);
+    
     html += `
         <div class="schedule-summary">
             <div class="summary-stat">
@@ -855,6 +860,10 @@ function buildScheduleHTML(data, playersList, recommendation = null) {
             <div class="summary-stat">
                 <div class="stat-value">${totalGames}</div>
                 <div class="stat-label">Total Games</div>
+            </div>
+            <div class="summary-stat" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <div class="stat-value" style="color: white;">${totalProjectedFP.toFixed(1)}</div>
+                <div class="stat-label" style="color: rgba(255,255,255,0.9);">Projected FP</div>
             </div>
         </div>
         
@@ -866,6 +875,7 @@ function buildScheduleHTML(data, playersList, recommendation = null) {
                         <th>Players</th>
                         <th>BC</th>
                         <th>FC</th>
+                        <th>Proj. FP</th>
                         <th>Status</th>
                     </tr>
                 </thead>
@@ -903,12 +913,30 @@ function buildScheduleHTML(data, playersList, recommendation = null) {
         const statusClass = isReady ? 'status-ready' : 'status-warning';
         const statusIcon = isReady ? '✓' : '⚠';
         
+        const dayData = data.games_by_day[day];
+        const projectedFP = dayData.projected_fp || 0;
+        const playerProjections = dayData.player_projections || [];
+        
+        // Create tooltip with player breakdown
+        let tooltipHTML = '';
+        if (playerProjections.length > 0) {
+            tooltipHTML = '<div class="fp-tooltip"><div class="fp-tooltip-header">Projected Points:</div>';
+            playerProjections.forEach(pp => {
+                tooltipHTML += `<div class="fp-tooltip-row">${pp.player_name} (${pp.team}): <strong>${pp.projected_fp} FP</strong></div>`;
+            });
+            tooltipHTML += '</div>';
+        }
+        
         html += `
-            <tr class="schedule-day-row ${statusClass}">
+            <tr class="schedule-day-row ${statusClass}" data-day="${day}">
                 <td class="day-name"><strong>${dayName}</strong></td>
                 <td class="player-count">${playerCount}</td>
                 <td class="position-count">${bcCount}</td>
                 <td class="position-count">${fcCount}</td>
+                <td class="projected-fp" title="Based on last 7 games average">
+                    <span class="fp-value">${projectedFP.toFixed(1)}</span>
+                    ${tooltipHTML}
+                </td>
                 <td class="day-status">
                     <span class="status-badge ${statusClass}">${statusIcon} ${isReady ? 'Ready' : `Need ${5 - playerCount}`}</span>
                 </td>
