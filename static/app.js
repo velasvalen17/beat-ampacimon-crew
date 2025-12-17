@@ -642,16 +642,21 @@ async function populateComparisonView(analysisData) {
             const option = document.createElement('option');
             option.value = index;
             
-            // Determine warning icon
+            // Determine warning icon based on warning text content
             let warningIcon = '✅';
             if (rec.warnings && rec.warnings.length > 0) {
-                const hasWarning = rec.warnings.some(w => w.type === 'warning');
-                const hasInfo = rec.warnings.some(w => w.type === 'info');
+                const hasWarning = rec.warnings.some(w => w.includes('⚠️'));
+                const hasSuccess = rec.warnings.some(w => w.includes('✅'));
                 if (hasWarning) warningIcon = '⚠️';
-                else if (hasInfo) warningIcon = 'ℹ️';
+                else if (hasSuccess) warningIcon = '✅';
+                else warningIcon = 'ℹ️';
             }
             
-            option.textContent = `${index + 1}. ${rec.player.name} (${rec.player.team}) ${warningIcon}`;
+            // Get player name from adds array (first player being added)
+            const playerName = rec.adds && rec.adds.length > 0 ? rec.adds[0].name : 'Unknown';
+            const playerTeam = rec.adds && rec.adds.length > 0 ? rec.adds[0].team : '';
+            
+            option.textContent = `${index + 1}. ${playerName} (${playerTeam}) ${warningIcon}`;
             if (index === 0) option.selected = true;
             selector.appendChild(option);
         });
