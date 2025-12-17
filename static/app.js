@@ -980,6 +980,13 @@ function switchTab(tabName) {
         analyzeRoster();
     }
     
+    // Populate comparison view if switching to comparison tab and we have analysis data
+    if (tabName === 'comparison') {
+        if (currentAnalysisData && currentAnalysisData.recommendations && currentAnalysisData.recommendations.length > 0) {
+            populateComparisonView(currentAnalysisData);
+        }
+    }
+    
     // Load team schedule if switching to teams tab
     if (tabName === 'teams') {
         loadTeamSchedule();
