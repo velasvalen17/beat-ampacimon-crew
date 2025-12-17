@@ -743,3 +743,52 @@ header .tagline {
 .stat-warning .stat-value {
     color: #92400e !important;
 }
+
+/* Schedule Comparison Styles */
+.comparison-header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.comparison-header h3 {
+    color: #0a2540;
+    margin-bottom: 5px;
+}
+
+.comparison-header p {
+    color: #64748b;
+    font-size: 0.9rem;
+}
+
+.comparison-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.comparison-column {
+    background: white;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.comparison-column h4 {
+    color: #0a2540;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e2e8f0;
+    text-align: center;
+}
+
+.comparison-column .schedule-placeholder {
+    text-align: center;
+    color: #94a3b8;
+    padding: 40px 20px;
+}
+
+@media (max-width: 968px) {
+    .comparison-grid {
+        grid-template-columns: 1fr;
+    }
+}

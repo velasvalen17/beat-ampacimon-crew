@@ -390,6 +390,236 @@ function displayAnalysis(data) {
     }
     
     analysisContent.innerHTML = html;
+    
+    // Also populate the comparison view with recommended roster
+    if (data.recommendations && data.recommendations.length > 0) {
+        populateComparisonView(data);
+    }
+}
+
+// Populate schedule comparison view
+async function populateComparisonView(analysisData) {
+    // Get current roster schedule
+    await updateCurrentScheduleInComparison();
+    
+    // Get recommended roster schedule (using first recommendation)
+    if (analysisData.recommendations && analysisData.recommendations.length > 0) {
+        await updateRecommendedScheduleInComparison(analysisData);
+    }
+}
+
+// Update current roster schedule in comparison view
+async function updateCurrentScheduleInComparison() {
+    const currentScheduleDiv = document.getElementById('current-schedule');
+    const selectedPlayers = [...currentRoster.backcourt, ...currentRoster.frontcourt]
+        .filter(p => p !== null && p !== undefined);
+    
+    if (selectedPlayers.length === 0) {
+        currentScheduleDiv.innerHTML = '<p class="schedule-placeholder">Select your roster to view schedule</p>';
+        return;
+    }
+    
+    const selectedGameweek = parseInt(document.getElementById('gameweek-selector').value) || 9;
+    const playerIds = selectedPlayers.map(p => p.player_id);
+    
+    try {
+        const response = await fetch('/api/game_schedule', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                player_ids: playerIds,
+                gameweek: selectedGameweek
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        currentScheduleDiv.innerHTML = buildScheduleHTML(data, selectedPlayers);
+    } catch (error) {
+        console.error('Error loading current schedule:', error);
+        currentScheduleDiv.innerHTML = '<p class="error">Failed to load schedule</p>';
+    }
+}
+
+// Update recommended roster schedule in comparison view
+async function updateRecommendedScheduleInComparison(analysisData) {
+    const recommendedScheduleDiv = document.getElementById('recommended-schedule');
+    const firstRec = analysisData.recommendations[0];
+    
+    // Build recommended roster: current roster - drops + adds
+    const dropsIds = new Set(firstRec.drops.map(d => d.player_id));
+    const currentPlayerIds = [...currentRoster.backcourt, ...currentRoster.frontcourt]
+        .filter(p => p !== null && p !== undefined)
+        .map(p => p.player_id);
+    
+    // Remove drops
+    const remainingIds = currentPlayerIds.filter(id => !dropsIds.has(id));
+    
+    // Add the new players
+    const recommendedIds = [...remainingIds, ...firstRec.adds.map(a => a.player_id)];
+    
+    const selectedGameweek = parseInt(document.getElementById('gameweek-selector').value) || 9;
+    
+    try {
+        const response = await fetch('/api/game_schedule', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                player_ids: recommendedIds,
+                gameweek: selectedGameweek
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Build player objects for display
+        const recommendedPlayers = [];
+        // Add remaining players
+        currentRoster.backcourt.concat(currentRoster.frontcourt).forEach(p => {
+            if (p && !dropsIds.has(p.player_id)) {
+                recommendedPlayers.push(p);
+            }
+        });
+        // Add new players
+        firstRec.adds.forEach(add => {
+            recommendedPlayers.push({
+                player_id: add.player_id,
+                player_name: add.name,
+                position: add.position,
+                team: add.team || '',
+                salary: add.salary
+            });
+        });
+        
+        recommendedScheduleDiv.innerHTML = buildScheduleHTML(data, recommendedPlayers);
+    } catch (error) {
+        console.error('Error loading recommended schedule:', error);
+        recommendedScheduleDiv.innerHTML = '<p class="error">Failed to load schedule</p>';
+    }
+}
+
+// Build schedule HTML (reusable for both views)
+function buildScheduleHTML(data, playersList) {
+    if (!data.games_by_day || Object.keys(data.games_by_day).length === 0) {
+        return '<p class="schedule-placeholder">No games found for this gameweek</p>';
+    }
+    
+    // Count players per day
+    const dayPlayerCounts = {};
+    const dayPlayerDetails = {};
+    
+    for (const [day, dayData] of Object.entries(data.games_by_day)) {
+        const games = dayData.games || dayData;
+        dayPlayerCounts[day] = 0;
+        dayPlayerDetails[day] = { backcourt: [], frontcourt: [] };
+        
+        const playersThisDay = new Set();
+        
+        games.forEach(game => {
+            game.players.forEach(player => {
+                if (!playersThisDay.has(player.player_id)) {
+                    playersThisDay.add(player.player_id);
+                    dayPlayerCounts[day]++;
+                    
+                    if (player.position === 'Backcourt') {
+                        dayPlayerDetails[day].backcourt.push(player);
+                    } else {
+                        dayPlayerDetails[day].frontcourt.push(player);
+                    }
+                }
+            });
+        });
+    }
+    
+    const totalGames = Object.values(data.games_by_day).reduce((sum, dayData) => {
+        const games = dayData.games || dayData;
+        return sum + (Array.isArray(games) ? games.length : 0);
+    }, 0);
+    
+    let html = `
+        <div class="schedule-summary">
+            <div class="summary-stat">
+                <div class="stat-value">${playersList.length}</div>
+                <div class="stat-label">Players</div>
+            </div>
+            <div class="summary-stat">
+                <div class="stat-value">${totalGames}</div>
+                <div class="stat-label">Total Games</div>
+            </div>
+        </div>
+        
+        <div class="schedule-table-container">
+            <table class="schedule-table">
+                <thead>
+                    <tr>
+                        <th>Game Day</th>
+                        <th>Players</th>
+                        <th>BC</th>
+                        <th>FC</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    // Sort days
+    const sortedDays = Object.keys(data.games_by_day).sort((a, b) => {
+        const gwRegex = /GW(\d+) Day (\d+)/;
+        const matchA = a.match(gwRegex);
+        const matchB = b.match(gwRegex);
+        
+        if (matchA && matchB) {
+            const gwA = parseInt(matchA[1]);
+            const gwB = parseInt(matchB[1]);
+            if (gwA !== gwB) return gwA - gwB;
+            return parseInt(matchA[2]) - parseInt(matchB[2]);
+        }
+        return new Date(a) - new Date(b);
+    });
+    
+    sortedDays.forEach(day => {
+        let dayName;
+        if (day.includes('GW')) {
+            dayName = day;
+        } else {
+            const dayDate = new Date(day + 'T00:00:00');
+            dayName = dayDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+        }
+        
+        const playerCount = dayPlayerCounts[day];
+        const bcCount = dayPlayerDetails[day].backcourt.length;
+        const fcCount = dayPlayerDetails[day].frontcourt.length;
+        const isReady = playerCount >= 5;
+        const statusClass = isReady ? 'status-ready' : 'status-warning';
+        const statusIcon = isReady ? '✓' : '⚠';
+        
+        html += `
+            <tr class="schedule-day-row ${statusClass}">
+                <td class="day-name"><strong>${dayName}</strong></td>
+                <td class="player-count">${playerCount}</td>
+                <td class="position-count">${bcCount}</td>
+                <td class="position-count">${fcCount}</td>
+                <td class="day-status">
+                    <span class="status-badge ${statusClass}">${statusIcon} ${isReady ? 'Ready' : `Need ${5 - playerCount}`}</span>
+                </td>
+            </tr>
+        `;
+    });
+    
+    html += `
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    return html;
 }
 
 // Save roster to localStorage

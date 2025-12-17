@@ -63,19 +63,43 @@
             <!-- Right Panel: Tabbed Results -->
             <div class="panel analysis-results">
                 <div class="tabs">
-                    <button class="tab-btn active" data-tab="analysis">Analysis & Recommendations</button>
-                    <button class="tab-btn" data-tab="schedule">Game Schedule</button>
+                    <button class="tab-btn active" data-tab="schedule">Game Schedule</button>
+                    <button class="tab-btn" data-tab="analysis">Analysis & Recommendations</button>
+                    <button class="tab-btn" data-tab="comparison">Schedule Comparison</button>
                 </div>
                 
-                <div id="analysis-tab" class="tab-content active">
+                <div id="schedule-tab" class="tab-content active">
+                    <div id="schedule-content" class="schedule-placeholder">
+                        <p>📅 Select your roster to see the game schedule for the selected gameweek</p>
+                    </div>
+                </div>
+                
+                <div id="analysis-tab" class="tab-content">
                     <div id="analysis-content" class="analysis-placeholder">
                         <p>👈 Select your roster and click "Analyze" to see recommendations</p>
                     </div>
                 </div>
                 
-                <div id="schedule-tab" class="tab-content">
-                    <div id="schedule-content" class="schedule-placeholder">
-                        <p>📅 Select your roster to see the game schedule for the selected gameweek</p>
+                <div id="comparison-tab" class="tab-content">
+                    <div id="comparison-content">
+                        <div class="comparison-header">
+                            <h3>Schedule Comparison</h3>
+                            <p>Compare your current roster schedule vs. recommended changes</p>
+                        </div>
+                        <div class="comparison-grid">
+                            <div class="comparison-column">
+                                <h4>Current Roster Schedule</h4>
+                                <div id="current-schedule" class="schedule-placeholder">
+                                    <p>Select your roster to view schedule</p>
+                                </div>
+                            </div>
+                            <div class="comparison-column">
+                                <h4>Recommended Roster Schedule</h4>
+                                <div id="recommended-schedule" class="schedule-placeholder">
+                                    <p>Run analysis to view recommended schedule</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
