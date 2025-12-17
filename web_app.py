@@ -19,6 +19,39 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+def get_fantasy_gamedays():
+    """Return fantasy gameday schedule with deadlines in Madrid timezone"""
+    madrid_tz = ZoneInfo('Europe/Madrid')
+    
+    # Parse gameday deadlines - these define when each fantasy gameday ENDS
+    gamedays = [
+        # Gameweek 1
+        (1, 1, datetime(2025, 10, 22, 1, 0, tzinfo=madrid_tz)),
+        (1, 2, datetime(2025, 10, 23, 0, 30, tzinfo=madrid_tz)),
+        (1, 3, datetime(2025, 10, 24, 1, 0, tzinfo=madrid_tz)),
+        (1, 4, datetime(2025, 10, 25, 1, 0, tzinfo=madrid_tz)),
+        (1, 5, datetime(2025, 10, 26, 0, 30, tzinfo=madrid_tz)),
+        (1, 6, datetime(2025, 10, 26, 18, 30, tzinfo=madrid_tz)),
+        # Gameweek 2
+        (2, 1, datetime(2025, 10, 27, 23, 30, tzinfo=madrid_tz)),
+        (2, 2, datetime(2025, 10, 28, 23, 30, tzinfo=madrid_tz)),
+        (2, 3, datetime(2025, 10, 29, 23, 30, tzinfo=madrid_tz)),
+        (2, 4, datetime(2025, 10, 30, 23, 30, tzinfo=madrid_tz)),
+        (2, 5, datetime(2025, 10, 31, 23, 30, tzinfo=madrid_tz)),
+        (2, 6, datetime(2025, 11, 1, 21, 30, tzinfo=madrid_tz)),
+        (2, 7, datetime(2025, 11, 2, 21, 0, tzinfo=madrid_tz)),
+        # Add more gameweeks as needed...
+        # Gameweek 9 (current)
+        (9, 1, datetime(2025, 12, 16, 0, 30, tzinfo=madrid_tz)),
+        (9, 2, datetime(2025, 12, 18, 1, 30, tzinfo=madrid_tz)),
+        (9, 3, datetime(2025, 12, 19, 0, 30, tzinfo=madrid_tz)),
+        (9, 4, datetime(2025, 12, 20, 0, 30, tzinfo=madrid_tz)),
+        (9, 5, datetime(2025, 12, 20, 22, 30, tzinfo=madrid_tz)),
+        (9, 6, datetime(2025, 12, 21, 21, 0, tzinfo=madrid_tz)),
+    ]
+    
+    return gamedays
+
 @app.route('/')
 def index():
     """Main page"""
@@ -475,15 +508,43 @@ def get_game_schedule():
         players_dict = {row['player_id']: dict(row) for row in cur.fetchall()}
         conn.close()
         
-        # Organize games by fantasy gameday (considering Madrid timezone)
-        # NBA games typically span multiple days due to timezone differences
-        # We group by calendar date but track all player details
+        # Get fantasy gameday schedule for this gameweek
+        all_gamedays = get_fantasy_gamedays()
+        gameweek_gamedays = [(gw, day, deadline) for gw, day, deadline in all_gamedays if gw == gameweek]
+        
+        # Organize games by fantasy gameday
         games_by_day = {}
+        madrid_tz = ZoneInfo('Europe/Madrid')
+        
         for game in games:
-            game_date = game['game_date']
+            # Parse game datetime (assume games table has date in YYYY-MM-DD)
+            game_date_str = game['game_date']
+            game_time_str = game['game_time'] or '00:00'
             
-            if game_date not in games_by_day:
-                games_by_day[game_date] = []
+            # Combine date and time - assume stored in UTC or needs conversion
+            try:
+                game_dt = datetime.strptime(f"{game_date_str} {game_time_str}", '%Y-%m-%d %H:%M')
+                # For now, assume game times are already in Madrid time or close enough
+                # In production, you'd convert from game's local timezone to Madrid
+            except:
+                game_dt = datetime.strptime(game_date_str, '%Y-%m-%d')
+            
+            # Find which fantasy gameday this game belongs to
+            fantasy_gameday_label = game_date_str  # Default to date
+            
+            for gw, day_num, deadline in gameweek_gamedays:
+                # Check if this game happens before this deadline
+                # A game belongs to a gameday if it occurs before that gameday's deadline
+                # and after the previous gameday's deadline
+                if game_dt <= deadline:
+                    fantasy_gameday_label = f"GW{gw} Day {day_num}"
+                    break
+            
+            if fantasy_gameday_label not in games_by_day:
+                games_by_day[fantasy_gameday_label] = {
+                    'deadline': None,
+                    'games': []
+                }
             
             # Find which players are in this game
             game_players = []
@@ -496,7 +557,7 @@ def get_game_schedule():
                     })
             
             if game_players:  # Only include games where our players are playing
-                games_by_day[game_date].append({
+                games_by_day[fantasy_gameday_label]['games'].append({
                     'game_id': game['game_id'],
                     'matchup': f"{game['home_abbr']} vs {game['away_abbr']}",
                     'time': game['game_time'],

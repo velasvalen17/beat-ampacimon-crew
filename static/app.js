@@ -543,7 +543,7 @@ function displayGameSchedule(data, selectedPlayers) {
         return;
     }
     
-    // Calculate player counts per day
+    // Calculate player counts per fantasy gameday
     const sortedDays = Object.keys(data.games_by_day).sort();
     const dayPlayerCounts = {};
     const dayPlayerDetails = {};
@@ -552,7 +552,10 @@ function displayGameSchedule(data, selectedPlayers) {
         const playersThisDay = new Set();
         const playersByPosition = { backcourt: [], frontcourt: [] };
         
-        data.games_by_day[day].forEach(game => {
+        const dayData = data.games_by_day[day];
+        const games = dayData.games || dayData;  // Handle both old and new format
+        
+        games.forEach(game => {
             game.players.forEach(p => {
                 playersThisDay.add(p.player_id);
                 const playerData = selectedPlayers.find(sp => sp.player_id === p.player_id);
@@ -610,8 +613,15 @@ function displayGameSchedule(data, selectedPlayers) {
     `;
     
     sortedDays.forEach(day => {
-        const dayDate = new Date(day + 'T00:00:00');
-        const dayName = dayDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+        // Handle fantasy gameday labels like "GW9 Day 1" or fallback to date
+        let dayName = day;
+        if (day.includes('GW')) {
+            dayName = day;  // Already formatted as "GW9 Day 1"
+        } else {
+            const dayDate = new Date(day + 'T00:00:00');
+            dayName = dayDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+        }
+        
         const playerCount = dayPlayerCounts[day];
         const bcCount = dayPlayerDetails[day].backcourt.length;
         const fcCount = dayPlayerDetails[day].frontcourt.length;
