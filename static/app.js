@@ -581,7 +581,7 @@ function buildScheduleHTML(data, playersList, recommendation = null) {
                 <div class="stat-value">${totalGames}</div>
                 <div class="stat-label">Total Games</div>
             </div>
-        </div>`;
+        </div>
         
         <div class="schedule-table-container">
             <table class="schedule-table">
