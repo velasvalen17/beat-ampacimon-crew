@@ -535,7 +535,7 @@ async function updateGameSchedule() {
 }
 
 // Display game schedule
-function displayGameSchedule(data, allPlayers) {
+function displayGameSchedule(data, selectedPlayers) {
     const scheduleContent = document.getElementById('schedule-content');
     
     if (!data.games_by_day || Object.keys(data.games_by_day).length === 0) {
@@ -543,14 +543,39 @@ function displayGameSchedule(data, allPlayers) {
         return;
     }
     
-    // Create summary
-    const totalGames = Object.values(data.games_by_day).reduce((sum, games) => sum + games.length, 0);
-    const playersWithGames = new Set();
-    Object.values(data.games_by_day).forEach(games => {
-        games.forEach(game => {
-            game.players.forEach(p => playersWithGames.add(p.player_id));
+    // Calculate player counts per day
+    const sortedDays = Object.keys(data.games_by_day).sort();
+    const dayPlayerCounts = {};
+    const dayPlayerDetails = {};
+    
+    sortedDays.forEach(day => {
+        const playersThisDay = new Set();
+        const playersByPosition = { backcourt: [], frontcourt: [] };
+        
+        data.games_by_day[day].forEach(game => {
+            game.players.forEach(p => {
+                playersThisDay.add(p.player_id);
+                const playerData = selectedPlayers.find(sp => sp.player_id === p.player_id);
+                if (playerData) {
+                    const position = playerData.position.includes('G') ? 'backcourt' : 'frontcourt';
+                    if (!playersByPosition[position].some(existing => existing.player_id === p.player_id)) {
+                        playersByPosition[position].push({
+                            ...p,
+                            matchup: game.matchup
+                        });
+                    }
+                }
+            });
         });
+        
+        dayPlayerCounts[day] = playersThisDay.size;
+        dayPlayerDetails[day] = playersByPosition;
     });
+    
+    // Summary stats
+    const totalGames = Object.values(data.games_by_day).reduce((sum, games) => sum + games.length, 0);
+    const daysWithEnoughPlayers = Object.values(dayPlayerCounts).filter(count => count >= 5).length;
+    const daysWithIssues = sortedDays.length - daysWithEnoughPlayers;
     
     let html = `
         <div class="schedule-summary">
@@ -559,51 +584,96 @@ function displayGameSchedule(data, allPlayers) {
                     <div class="stat-value">${totalGames}</div>
                     <div class="stat-label">Total Games</div>
                 </div>
-                <div class="stat-item">
-                    <div class="stat-value">${playersWithGames.size}</div>
-                    <div class="stat-label">Players with Games</div>
+                <div class="stat-item ${daysWithEnoughPlayers === sortedDays.length ? 'stat-ok' : ''}">
+                    <div class="stat-value">${daysWithEnoughPlayers}</div>
+                    <div class="stat-label">Days Ready</div>
                 </div>
-                <div class="stat-item">
-                    <div class="stat-value">${allPlayers.length - playersWithGames.size}</div>
-                    <div class="stat-label">Players without Games</div>
+                <div class="stat-item ${daysWithIssues > 0 ? 'stat-warning' : ''}">
+                    <div class="stat-value">${daysWithIssues}</div>
+                    <div class="stat-label">Days Need Attention</div>
                 </div>
             </div>
         </div>
-        <div class="schedule-grid">
+        
+        <div class="schedule-table-wrapper">
+            <table class="schedule-table">
+                <thead>
+                    <tr>
+                        <th>Game Day</th>
+                        <th>Players</th>
+                        <th>BC</th>
+                        <th>FC</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
     `;
     
-    // Sort days chronologically
-    const sortedDays = Object.keys(data.games_by_day).sort();
-    
     sortedDays.forEach(day => {
-        const games = data.games_by_day[day];
-        const dayDate = new Date(day);
-        const dayName = dayDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+        const dayDate = new Date(day + 'T00:00:00');
+        const dayName = dayDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        const playerCount = dayPlayerCounts[day];
+        const bcCount = dayPlayerDetails[day].backcourt.length;
+        const fcCount = dayPlayerDetails[day].frontcourt.length;
+        const isReady = playerCount >= 5;
+        const statusClass = isReady ? 'status-ready' : 'status-warning';
+        const statusIcon = isReady ? '✓' : '⚠';
         
         html += `
-            <div class="game-day">
-                <div class="game-day-header">${dayName} - ${games.length} game${games.length !== 1 ? 's' : ''}</div>
-                <div class="game-list">
+            <tr class="schedule-day-row ${statusClass}" onclick="toggleDayDetails('${day}')">
+                <td class="day-name"><strong>${dayName}</strong></td>
+                <td class="player-count ${playerCount < 5 ? 'count-warning' : 'count-ok'}">${playerCount}</td>
+                <td class="position-count">${bcCount}</td>
+                <td class="position-count">${fcCount}</td>
+                <td class="day-status">
+                    <span class="status-badge ${statusClass}">${statusIcon} ${isReady ? 'Ready' : `Need ${5 - playerCount} more`}</span>
+                </td>
+            </tr>
+            <tr class="day-details" id="details-${day}" style="display: none;">
+                <td colspan="5">
+                    <div class="day-details-content">
         `;
         
-        games.forEach(game => {
-            html += `
-                <div class="game-item">
-                    <div class="game-matchup">${game.matchup}</div>
-                    <div class="game-time">${game.time || 'TBD'}</div>
-                    <div class="game-players">
-                        ${game.players.map(p => `<span class="player-badge">${p.player_name} (${p.team})</span>`).join('')}
-                    </div>
-                </div>
-            `;
-        });
+        // Show backcourt players
+        if (dayPlayerDetails[day].backcourt.length > 0) {
+            html += '<div class="position-section"><strong>Backcourt:</strong> ';
+            html += dayPlayerDetails[day].backcourt.map(p => 
+                `<span class="player-chip">${p.player_name} (${p.team}) vs ${p.matchup}</span>`
+            ).join(' ');
+            html += '</div>';
+        }
+        
+        // Show frontcourt players
+        if (dayPlayerDetails[day].frontcourt.length > 0) {
+            html += '<div class="position-section"><strong>Frontcourt:</strong> ';
+            html += dayPlayerDetails[day].frontcourt.map(p => 
+                `<span class="player-chip">${p.player_name} (${p.team}) vs ${p.matchup}</span>`
+            ).join(' ');
+            html += '</div>';
+        }
         
         html += `
-                </div>
-            </div>
+                    </div>
+                </td>
+            </tr>
         `;
     });
     
-    html += '</div>';
+    html += `
+                </tbody>
+            </table>
+        </div>
+    `;
+    
     scheduleContent.innerHTML = html;
+}
+
+// Toggle day details
+function toggleDayDetails(day) {
+    const detailsRow = document.getElementById(`details-${day}`);
+    if (detailsRow.style.display === 'none') {
+        detailsRow.style.display = 'table-row';
+    } else {
+        detailsRow.style.display = 'none';
+    }
 }

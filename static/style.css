@@ -599,3 +599,140 @@ header .tagline {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+/* Schedule Table Styles */
+.schedule-table-wrapper {
+    overflow-x: auto;
+    margin-top: 20px;
+}
+
+.schedule-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+}
+
+.schedule-table thead {
+    background: #0a2540;
+    color: white;
+}
+
+.schedule-table th {
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.schedule-table tbody tr.schedule-day-row {
+    border-bottom: 1px solid #e0e0e0;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.schedule-table tbody tr.schedule-day-row:hover {
+    background-color: #f8f9fa;
+}
+
+.schedule-table tbody tr.schedule-day-row.status-ready {
+    background-color: #f0f9f4;
+}
+
+.schedule-table tbody tr.schedule-day-row.status-warning {
+    background-color: #fff8f0;
+}
+
+.schedule-table td {
+    padding: 12px;
+    font-size: 0.95rem;
+}
+
+.day-name {
+    font-weight: 600;
+    color: #0a2540;
+}
+
+.player-count {
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+
+.player-count.count-ok {
+    color: #059669;
+}
+
+.player-count.count-warning {
+    color: #dc2626;
+}
+
+.position-count {
+    color: #6b7280;
+    font-weight: 600;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.status-badge.status-ready {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.status-badge.status-warning {
+    background-color: #fed7aa;
+    color: #92400e;
+}
+
+.day-details {
+    background-color: #f9fafb;
+}
+
+.day-details-content {
+    padding: 15px 20px;
+}
+
+.position-section {
+    margin-bottom: 10px;
+    line-height: 1.8;
+}
+
+.position-section strong {
+    color: #0a2540;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.player-chip {
+    display: inline-block;
+    background: white;
+    border: 1px solid #e0e0e0;
+    padding: 4px 10px;
+    border-radius: 6px;
+    margin-right: 8px;
+    margin-bottom: 6px;
+    font-size: 0.9rem;
+    color: #374151;
+}
+
+.stat-ok {
+    background-color: #d1fae5 !important;
+}
+
+.stat-ok .stat-value {
+    color: #065f46 !important;
+}
+
+.stat-warning {
+    background-color: #fed7aa !important;
+}
+
+.stat-warning .stat-value {
+    color: #92400e !important;
+}
