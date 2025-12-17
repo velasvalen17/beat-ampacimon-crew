@@ -365,7 +365,8 @@ function displayAnalysis(data) {
             html += '<div class="transaction"><strong class="drop">DROP:</strong><ul>';
             rec.drops.forEach(drop => {
                 const fpStr = drop.fantasy_avg > 0 ? `, ${drop.fantasy_avg.toFixed(1)} FP/G` : '';
-                html += `<li>${drop.name} (${drop.position}, $${drop.salary}M${fpStr})</li>`;
+                const teamDaysStr = drop.team_game_days ? ` - ${drop.team} plays ${drop.team_game_days} days` : '';
+                html += `<li>${drop.name} (${drop.position}, $${drop.salary}M${fpStr}${teamDaysStr})</li>`;
             });
             html += '</ul></div>';
             
@@ -373,7 +374,9 @@ function displayAnalysis(data) {
             html += '<div class="transaction"><strong class="add">ADD:</strong><ul>';
             rec.adds.forEach(add => {
                 const fpStr = add.fantasy_avg > 0 ? `, ${add.fantasy_avg.toFixed(1)} FP/G` : '';
-                html += `<li>${add.name} (${add.position}, $${add.salary}M, ${add.games} games${fpStr})</li>`;
+                const teamDaysStr = add.team_game_days ? ` - ${add.team} plays ${add.team_game_days} days` : '';
+                const teamDaysEmoji = add.team_game_days >= 4 ? ' 🔥' : (add.team_game_days >= 3 ? ' ✨' : '');
+                html += `<li>${add.name} (${add.position}, $${add.salary}M, ${add.games} games${fpStr}${teamDaysStr}${teamDaysEmoji})</li>`;
             });
             html += '</ul></div>';
             

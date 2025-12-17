@@ -210,6 +210,7 @@ def analyze_lineup():
             p.player_name,
             p.position,
             p.salary,
+            p.team_id,
             t.team_abbreviation as team
         FROM players p
         JOIN teams t ON p.team_id = t.team_id
@@ -301,6 +302,25 @@ def analyze_lineup():
                 'needed': 5 - day_coverage[day]['total']
             })
     
+    # Calculate how many unique days each team plays in this gameweek
+    cur.execute("""
+        SELECT 
+            t.team_id,
+            t.team_abbreviation,
+            COUNT(DISTINCT g.game_date) as game_days
+        FROM teams t
+        JOIN games g ON (t.team_id = g.home_team_id OR t.team_id = g.away_team_id)
+        WHERE g.game_date >= ? AND g.game_date <= ?
+        GROUP BY t.team_id
+    """, [start_date, end_date])
+    
+    team_game_days = {row['team_id']: row['game_days'] for row in cur.fetchall()}
+    
+    # Calculate average game days for current roster teams
+    roster_team_ids = [p['team_id'] for p in roster_details]
+    roster_team_game_days = [team_game_days.get(tid, 0) for tid in roster_team_ids]
+    avg_roster_team_days = sum(roster_team_game_days) / len(roster_team_game_days) if roster_team_game_days else 0
+    
     # Find recommendations - players who play on insufficient days
     recommendations = []
     
@@ -316,6 +336,7 @@ def analyze_lineup():
                     p.player_name,
                     p.position,
                     p.salary,
+                    p.team_id,
                     t.team_abbreviation as team,
                     GROUP_CONCAT(DISTINCT g.game_date) as game_dates,
                     COUNT(DISTINCT g.game_date) as total_games
@@ -346,6 +367,7 @@ def analyze_lineup():
                 pg.player_name,
                 pg.position,
                 pg.salary,
+                pg.team_id,
                 pg.team,
                 pg.game_dates,
                 pg.total_games,
@@ -357,6 +379,10 @@ def analyze_lineup():
         """, current_roster + [start_date, end_date] + problem_dates)
         
         candidates = [dict(row) for row in cur.fetchall()]
+        
+        # Add team game days to each candidate
+        for candidate in candidates:
+            candidate['team_game_days'] = team_game_days.get(candidate['team_id'], 0)
         
         # Get fantasy stats for current roster from ALL games (not date-filtered)
         cur.execute(f"""
@@ -438,16 +464,36 @@ def analyze_lineup():
                     continue
                 
                 # Calculate comprehensive improvement score
-                # Balanced priorities: Games > Fantasy Points > Depth
+                # Priorities: Team game days > Games improvement > Fantasy Points > Depth
                 
                 depth_score = 0
                 fp_improvement = 0
                 games_improvement = 0
+                team_days_improvement = 0
+                
+                # Calculate team game days improvement (KEY METRIC)
+                drop_team_days = sum(team_game_days.get(d['team_id'], 0) for d in drops)
+                add_team_days = sum(a['team_game_days'] for a in adds)
+                team_days_improvement = add_team_days - drop_team_days
+                
+                # Prioritize teams that play MORE days than roster average
+                teams_above_avg = sum(1 for a in adds if a['team_game_days'] > avg_roster_team_days)
+                team_quality_bonus = teams_above_avg * 100
                 
                 # Calculate fantasy point impact
                 drop_fp = sum(d['fantasy_avg'] for d in drops)
                 add_fp = sum(a['fantasy_avg'] for a in adds)
                 fp_improvement = add_fp - drop_fp
+                
+                # Bonus for similar or better fantasy points (minimize FP loss)
+                fp_similarity_bonus = 0
+                for i, add in enumerate(adds):
+                    if i < len(drops):
+                        fp_ratio = add['fantasy_avg'] / drops[i]['fantasy_avg'] if drops[i]['fantasy_avg'] > 0 else 1
+                        if fp_ratio >= 0.9:  # Within 10% of dropped player
+                            fp_similarity_bonus += 50
+                        elif fp_ratio >= 0.8:  # Within 20%
+                            fp_similarity_bonus += 30
                 
                 # Calculate games and depth improvement
                 drop_total_games = sum(len(player_days.get(d['player_id'], [])) for d in drops)
@@ -474,12 +520,14 @@ def analyze_lineup():
                 budget_usage = add_salary / budget if budget > 0 else 0
                 budget_bonus = budget_usage * 20
                 
-                # Combined score: Games (most important), then FP, then depth, then budget
-                score = games_improvement * 100 + fp_improvement * 50 + depth_score + budget_bonus
+                # Combined score: Team days (most important) > Games > FP similarity > FP improvement > Depth
+                score = (team_days_improvement * 200 + team_quality_bonus + 
+                        games_improvement * 100 + fp_similarity_bonus + 
+                        fp_improvement * 50 + depth_score + budget_bonus)
                 
                 best_options.append({
-                    'drops': [{'player_id': d['player_id'], 'name': d['player_name'], 'salary': d['salary'], 'position': d['position'], 'fantasy_avg': d['fantasy_avg'], 'team': d.get('team', '')} for d in drops],
-                    'adds': [{'player_id': a['player_id'], 'name': a['player_name'], 'salary': a['salary'], 'position': a['position'], 'games': len(a['game_dates'].split(',')), 'fantasy_avg': a['fantasy_avg'], 'team': a.get('team', '')} for a in adds],
+                    'drops': [{'player_id': d['player_id'], 'name': d['player_name'], 'salary': d['salary'], 'position': d['position'], 'fantasy_avg': d['fantasy_avg'], 'team': d.get('team', ''), 'team_game_days': team_game_days.get(d['team_id'], 0)} for d in drops],
+                    'adds': [{'player_id': a['player_id'], 'name': a['player_name'], 'salary': a['salary'], 'position': a['position'], 'games': len(a['game_dates'].split(',')), 'fantasy_avg': a['fantasy_avg'], 'team': a.get('team', ''), 'team_game_days': a['team_game_days']} for a in adds],
                     'cost': add_salary - drop_salary,
                     'fp_improvement': fp_improvement,
                     'depth_score': depth_score,
