@@ -730,8 +730,10 @@ async function updateRecommendedScheduleInComparison(analysisData, recIndex = 0)
     // Add the new players
     const recommendedIds = [...remainingIds, ...selectedRec.adds.map(a => a.player_id)];
     
-    console.log('Current roster IDs:', currentPlayerIds);
-    console.log('Drops:', dropsIds);
+    console.log('=== Updating comparison for recommendation', recIndex, '===');
+    console.log('Selected Rec:', selectedRec);
+    console.log('Adds:', selectedRec.adds.map(a => a.name));
+    console.log('Drops:', selectedRec.drops.map(d => d.name));
     console.log('Recommended roster IDs:', recommendedIds);
     
     const selectedGameweek = parseInt(document.getElementById('gameweek-selector').value) || 9;
@@ -771,7 +773,18 @@ async function updateRecommendedScheduleInComparison(analysisData, recIndex = 0)
             });
         });
         
-        recommendedScheduleDiv.innerHTML = buildScheduleHTML(data, recommendedPlayers, selectedRec);
+        // Add header showing which recommendation is displayed
+        let html = `<div style="background: #e3f2fd; padding: 12px; margin-bottom: 15px; border-radius: 8px; border-left: 4px solid #2196f3;">`;
+        html += `<strong>Showing Recommendation ${recIndex + 1}</strong><br>`;
+        html += `<span style="font-size: 0.9rem; color: #666;">`;
+        html += `Add: ${selectedRec.adds.map(a => a.name).join(', ')}`;
+        if (selectedRec.drops && selectedRec.drops.length > 0) {
+            html += ` | Drop: ${selectedRec.drops.map(d => d.name).join(', ')}`;
+        }
+        html += `</span></div>`;
+        html += buildScheduleHTML(data, recommendedPlayers, selectedRec);
+        
+        recommendedScheduleDiv.innerHTML = html;
     } catch (error) {
         console.error('Error loading recommended schedule:', error);
         recommendedScheduleDiv.innerHTML = '<p class="error">Failed to load schedule</p>';
