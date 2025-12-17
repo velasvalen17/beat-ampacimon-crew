@@ -568,17 +568,22 @@ def get_game_schedule():
                 game_dt = game_dt.replace(tzinfo=madrid_tz)
             
             # Find which fantasy gameday this game belongs to
-            # A game belongs to the gameday whose deadline comes AFTER the game starts
-            # This means games between deadlines belong to the earlier gameday
+            # Games belong to a gameday if they occur before the NEXT gameday's deadline
+            # The deadline is when lineups lock, but games that day still count for that gameday
             fantasy_gameday_label = None
             
             for i, (gw, day_num, deadline) in enumerate(gameweek_gamedays):
-                # Game belongs to this gameday if it starts before this deadline
-                # and either it's the first gameday OR it starts after the previous deadline
-                if game_dt < deadline:
-                    if i == 0 or game_dt >= gameweek_gamedays[i-1][2]:
-                        fantasy_gameday_label = f"GW{gw} Day {day_num}"
-                        break
+                # Check if this is the last gameday OR if game is before next deadline
+                next_deadline = gameweek_gamedays[i+1][2] if i+1 < len(gameweek_gamedays) else None
+                
+                if next_deadline is None:
+                    # Last gameday - include all remaining games
+                    fantasy_gameday_label = f"GW{gw} Day {day_num}"
+                    break
+                elif game_dt < next_deadline:
+                    # Game occurs before next gameday's deadline, so it belongs to this gameday
+                    fantasy_gameday_label = f"GW{gw} Day {day_num}"
+                    break
             
             # If no matching gameday found, assign to the last gameday in the list
             if not fantasy_gameday_label and gameweek_gamedays:
