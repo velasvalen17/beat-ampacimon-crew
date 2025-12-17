@@ -771,7 +771,6 @@ def get_game_schedule():
         """, player_ids)
         
         players_dict = {row['player_id']: dict(row) for row in cur.fetchall()}
-        conn.close()
         
         # Get fantasy gameday schedule for this gameweek
         all_gamedays = get_fantasy_gamedays()
@@ -911,6 +910,7 @@ def get_game_schedule():
                 day_data['player_projections'].sort(key=lambda x: x['projected_fp'], reverse=True)
                 day_data['projected_fp'] = round(day_data['projected_fp'], 1)
         
+        conn.close()
         return jsonify({'games_by_day': games_by_day})
     
     except Exception as e:
