@@ -568,30 +568,29 @@ def get_game_schedule():
                 game_dt = game_dt.replace(tzinfo=madrid_tz)
             
             # Find which fantasy gameday this game belongs to
-            # Games belong to the gameday whose deadline they fall under
-            # Special case: games within 2 hours before first deadline belong to that day
+            # Games happen AFTER a deadline and before the next deadline
+            # Special case: Day 1 starts 2 hours before its deadline to catch early games
             fantasy_gameday_label = None
             
             for i, (gw, day_num, deadline) in enumerate(gameweek_gamedays):
                 next_deadline = gameweek_gamedays[i+1][2] if i+1 < len(gameweek_gamedays) else None
-                prev_deadline = gameweek_gamedays[i-1][2] if i > 0 else None
                 
                 # Determine the start window for this gameday
                 if i == 0:
-                    # First gameday: include games up to 2 hours before deadline
+                    # First gameday: games start 2 hours before deadline (to catch early evening games)
                     start_window = deadline - timedelta(hours=2)
                 else:
-                    # Other gamedays start after previous deadline
-                    start_window = prev_deadline
+                    # All other gamedays: games start at THIS deadline (not previous)
+                    start_window = deadline
                 
                 # Determine if game falls in this gameday's window
                 if next_deadline is None:
-                    # Last gameday: all games from start window onwards
+                    # Last gameday: all games from this deadline onwards
                     if game_dt >= start_window:
                         fantasy_gameday_label = f"GW{gw} Day {day_num}"
                         break
                 else:
-                    # Games from start window up to next deadline
+                    # Games from this deadline up to next deadline
                     if game_dt >= start_window and game_dt < next_deadline:
                         fantasy_gameday_label = f"GW{gw} Day {day_num}"
                         break
