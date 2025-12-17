@@ -97,8 +97,8 @@ def get_players():
             SELECT 
                 pgs.player_id,
                 COUNT(*) as games_played,
-                AVG(pgs.points + 1.2 * pgs.rebounds + 1.5 * pgs.assists + 
-                    3 * pgs.steals + 3 * pgs.blocks - pgs.turnovers) as fantasy_avg
+                AVG(pgs.points + pgs.rebounds + 2 * pgs.assists + 
+                    3 * pgs.blocks + 3 * pgs.steals) as fantasy_avg
             FROM player_game_stats pgs
             GROUP BY pgs.player_id
             HAVING COUNT(*) >= 1
@@ -332,8 +332,8 @@ def analyze_lineup():
             recent_stats AS (
                 SELECT 
                     pgs.player_id,
-                    AVG(pgs.points + 1.2 * pgs.rebounds + 1.5 * pgs.assists + 
-                        3 * pgs.steals + 3 * pgs.blocks - pgs.turnovers) as fantasy_avg,
+                    AVG(pgs.points + pgs.rebounds + 2 * pgs.assists + 
+                        3 * pgs.blocks + 3 * pgs.steals) as fantasy_avg,
                     COUNT(*) as games_played
                 FROM player_game_stats pgs
                 JOIN games g ON pgs.game_id = g.game_id
@@ -362,8 +362,8 @@ def analyze_lineup():
         cur.execute(f"""
             SELECT 
                 pgs.player_id,
-                AVG(pgs.points + 1.2 * pgs.rebounds + 1.5 * pgs.assists + 
-                    3 * pgs.steals + 3 * pgs.blocks - pgs.turnovers) as fantasy_avg
+                AVG(pgs.points + pgs.rebounds + 2 * pgs.assists + 
+                    3 * pgs.blocks + 3 * pgs.steals) as fantasy_avg
             FROM player_game_stats pgs
             JOIN games g ON pgs.game_id = g.game_id
             WHERE pgs.player_id IN ({placeholders})

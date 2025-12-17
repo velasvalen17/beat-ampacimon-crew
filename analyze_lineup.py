@@ -67,7 +67,7 @@ def analyze_transactions():
             t.team_name,
             p.salary,
             COUNT(DISTINCT pgs.game_id) as games_played,
-            ROUND(AVG(pgs.points + 1.2*pgs.rebounds + 1.5*pgs.assists + 3*pgs.steals + 3*pgs.blocks - pgs.turnovers), 1) as fantasy_avg
+            ROUND(AVG(pgs.points + pgs.rebounds + 2*pgs.assists + 3*pgs.blocks + 3*pgs.steals), 1) as fantasy_avg
         FROM players p
         LEFT JOIN teams t ON p.team_id = t.team_id
         LEFT JOIN player_game_stats pgs ON p.player_id = pgs.player_id
@@ -149,9 +149,9 @@ def analyze_transactions():
             p.team_id,
             p.salary,
             COUNT(DISTINCT pgs.game_id) as games_played_last_week,
-            ROUND(AVG(pgs.points + 1.2*pgs.rebounds + 1.5*pgs.assists + 3*pgs.steals + 3*pgs.blocks - pgs.turnovers), 1) as fantasy_avg,
+            ROUND(AVG(pgs.points + pgs.rebounds + 2*pgs.assists + 3*pgs.blocks + 3*pgs.steals), 1) as fantasy_avg,
             CASE 
-                WHEN p.salary > 0 THEN ROUND(AVG(pgs.points + 1.2*pgs.rebounds + 1.5*pgs.assists + 3*pgs.steals + 3*pgs.blocks - pgs.turnovers) / p.salary, 2)
+                WHEN p.salary > 0 THEN ROUND(AVG(pgs.points + pgs.rebounds + 2*pgs.assists + 3*pgs.blocks + 3*pgs.steals) / p.salary, 2)
                 ELSE 0
             END as value_per_mil
         FROM players p

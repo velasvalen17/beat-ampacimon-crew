@@ -178,7 +178,7 @@ def get_daily_comparison():
                 p.player_name,
                 p.position,
                 t.team_abbreviation,
-                (SELECT ROUND(AVG(pgs2.points + 1.2*pgs2.rebounds + 1.5*pgs2.assists + 3*pgs2.steals + 3*pgs2.blocks - pgs2.turnovers), 1)
+                (SELECT ROUND(AVG(pgs2.points + pgs2.rebounds + 2*pgs2.assists + 3*pgs2.blocks + 3*pgs2.steals), 1)
                  FROM player_game_stats pgs2
                  JOIN games g2 ON pgs2.game_id LIKE g2.game_id || '_%'
                  WHERE pgs2.player_id = p.player_id
@@ -206,7 +206,7 @@ def get_daily_comparison():
                 p.player_name,
                 p.position,
                 t.team_abbreviation,
-                (SELECT ROUND(AVG(pgs2.points + 1.2*pgs2.rebounds + 1.5*pgs2.assists + 3*pgs2.steals + 3*pgs2.blocks - pgs2.turnovers), 1)
+                (SELECT ROUND(AVG(pgs2.points + pgs2.rebounds + 2*pgs2.assists + 3*pgs2.blocks + 3*pgs2.steals), 1)
                  FROM player_game_stats pgs2
                  JOIN games g2 ON pgs2.game_id LIKE g2.game_id || '_%'
                  WHERE pgs2.player_id = p.player_id

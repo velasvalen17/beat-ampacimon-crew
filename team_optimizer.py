@@ -42,7 +42,7 @@ def optimize_team_with_salary(max_salary=100.0, performance_weight=0.7):
             ROUND(AVG(pgs.steals), 1) as avg_steals,
             ROUND(AVG(pgs.blocks), 1) as avg_blocks,
             ROUND(AVG(pgs.turnovers), 1) as avg_turnovers,
-            ROUND(AVG(pgs.points + 1.2*pgs.rebounds + 1.5*pgs.assists + 3*pgs.steals + 3*pgs.blocks - pgs.turnovers), 1) as fantasy_avg
+            ROUND(AVG(pgs.points + pgs.rebounds + 2*pgs.assists + 3*pgs.blocks + 3*pgs.steals), 1) as fantasy_avg
         FROM player_game_stats pgs
         JOIN players p ON pgs.player_id = p.player_id
         JOIN teams t ON p.team_id = t.team_id

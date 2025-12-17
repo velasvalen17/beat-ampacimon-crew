@@ -77,8 +77,8 @@ def get_player_stats_and_games(roster_bc, roster_fc):
             SELECT 
                 p.player_id,
                 p.player_name,
-                AVG(pgs.points + 1.2 * pgs.rebounds + 1.5 * pgs.assists + 
-                    3 * pgs.steals + 3 * pgs.blocks - pgs.turnovers) as fantasy_avg
+                AVG(pgs.points + pgs.rebounds + 2 * pgs.assists + 
+                    3 * pgs.blocks + 3 * pgs.steals) as fantasy_avg
             FROM players p
             JOIN player_game_stats pgs ON p.player_id = pgs.player_id
             JOIN games g ON pgs.game_id = g.game_id

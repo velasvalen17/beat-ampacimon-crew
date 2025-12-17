@@ -66,7 +66,7 @@ def get_daily_lineups():
                 p.position,
                 t.team_name,
                 p.salary,
-                ROUND(AVG(pgs.points + 1.2*pgs.rebounds + 1.5*pgs.assists + 3*pgs.steals + 3*pgs.blocks - pgs.turnovers), 1) as fantasy_avg,
+                ROUND(AVG(pgs.points + pgs.rebounds + 2*pgs.assists + 3*pgs.blocks + 3*pgs.steals), 1) as fantasy_avg,
                 g.game_date,
                 CASE 
                     WHEN g.home_team_id = p.team_id THEN 'vs ' || away.team_name
