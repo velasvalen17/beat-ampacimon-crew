@@ -407,10 +407,13 @@ def get_player_schedule(player_id):
 @app.route('/api/game_schedule', methods=['POST'])
 def get_game_schedule():
     """Get game schedule for selected players in a gameweek"""
+    print("=== GAME SCHEDULE API CALLED - NEW CODE V2 ===")
     try:
         data = request.json
+        print(f"Received data: {data}")
         player_ids = data.get('player_ids', [])
         gameweek = int(data.get('gameweek', 9))
+        print(f"Player IDs: {player_ids}, Gameweek: {gameweek}")
         
         if not player_ids:
             return jsonify({'games_by_day': {}})
