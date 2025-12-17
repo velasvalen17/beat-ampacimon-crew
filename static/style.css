@@ -817,3 +817,120 @@ header .tagline {
 .view-recommendation-btn:active {
     transform: translateY(0);
 }
+
+/* Teams Tab Styles */
+.teams-placeholder {
+    text-align: center;
+    color: #666;
+    padding: 40px 20px;
+    font-size: 1.1rem;
+}
+
+.teams-header {
+    margin-bottom: 20px;
+}
+
+.teams-header h3 {
+    color: #0a2540;
+    margin-bottom: 8px;
+}
+
+.teams-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.team-card {
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+    border-left: 4px solid #e0e0e0;
+}
+
+.team-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+
+.team-card.top-three {
+    border-left: 4px solid #ffd700;
+    background: linear-gradient(to right, #fffbf0, white);
+}
+
+.team-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.team-rank {
+    font-size: 1.5rem;
+    font-weight: bold;
+    min-width: 40px;
+}
+
+.team-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #0a2540;
+    flex: 1;
+}
+
+.team-abbr {
+    background: #0a2540;
+    color: white;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.team-stats {
+    color: #666;
+    font-size: 0.95rem;
+}
+
+.team-stats strong {
+    color: #00a8e1;
+    font-size: 1.1rem;
+}
+
+.team-games {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e0e0e0;
+}
+
+.game-date-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    flex-wrap: wrap;
+}
+
+.game-date {
+    font-weight: 600;
+    color: #0a2540;
+    font-size: 0.9rem;
+    min-width: 80px;
+}
+
+.game-matchup {
+    background: white;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: #555;
+    border: 1px solid #e0e0e0;
+    white-space: nowrap;
+}

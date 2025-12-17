@@ -133,6 +133,11 @@ function setupEventListeners() {
         analysisContent.innerHTML = '<p class="analysis-placeholder">👈 Click "Analyze" to see recommendations for the selected gameweek</p>';
         // Update schedule if roster is selected
         updateGameSchedule();
+        // Update team schedule if on teams tab
+        const activeTab = document.querySelector('.tab-btn.active');
+        if (activeTab && activeTab.dataset.tab === 'teams') {
+            loadTeamSchedule();
+        }
     });
 }
 
@@ -927,6 +932,11 @@ function switchTab(tabName) {
         content.classList.remove('active');
     });
     document.getElementById(`${tabName}-tab`).classList.add('active');
+    
+    // Load team schedule if switching to teams tab
+    if (tabName === 'teams') {
+        loadTeamSchedule();
+    }
 }
 
 // Update game schedule for current roster
@@ -1131,4 +1141,81 @@ function displayGameSchedule(data, selectedPlayers) {
     `;
     
     scheduleContent.innerHTML = html;
+}
+
+// Load team schedule for the top teams tab
+async function loadTeamSchedule() {
+    const teamsContent = document.getElementById('teams-content');
+    const gameweek = parseInt(document.getElementById('gameweek-selector').value) || 9;
+    
+    teamsContent.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading team data...</p></div>';
+    
+    try {
+        const response = await fetch(`/api/team_schedule/${gameweek}`);
+        const data = await response.json();
+        
+        let html = `
+            <div class="teams-header">
+                <h3>🏆 Top 10 Teams - Gameweek ${data.gameweek}</h3>
+                <p style="color: #666; margin-bottom: 20px;">${data.date_range}</p>
+            </div>
+            <div class="teams-list">
+        `;
+        
+        data.teams.forEach((team, index) => {
+            const rankEmoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+            const rankClass = index < 3 ? 'top-three' : '';
+            
+            html += `
+                <div class="team-card ${rankClass}">
+                    <div class="team-header">
+                        <span class="team-rank">${rankEmoji}</span>
+                        <span class="team-name">${team.team_name}</span>
+                        <span class="team-abbr">${team.team_abbreviation}</span>
+                        <span class="team-stats">
+                            <strong>${team.game_days}</strong> ${team.game_days === 1 ? 'day' : 'days'} • 
+                            <strong>${team.total_games}</strong> ${team.total_games === 1 ? 'game' : 'games'}
+                        </span>
+                    </div>
+                    <div class="team-games">
+            `;
+            
+            // Group games by date
+            const gamesByDate = {};
+            team.games.forEach(game => {
+                if (!gamesByDate[game.date]) {
+                    gamesByDate[game.date] = [];
+                }
+                gamesByDate[game.date].push(game);
+            });
+            
+            // Display games by date
+            Object.keys(gamesByDate).sort().forEach(date => {
+                const dateObj = new Date(date + 'T00:00:00');
+                const formattedDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' });
+                
+                html += `<div class="game-date-group">`;
+                html += `<span class="game-date">${formattedDate}</span>`;
+                
+                gamesByDate[date].forEach(game => {
+                    const gameType = game.type === 'vs' ? '🏠 vs' : '✈️ @';
+                    html += `<span class="game-matchup">${gameType} ${game.opponent}</span>`;
+                });
+                
+                html += `</div>`;
+            });
+            
+            html += `
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += `</div>`;
+        
+        teamsContent.innerHTML = html;
+    } catch (error) {
+        console.error('Error loading team schedule:', error);
+        teamsContent.innerHTML = '<p style="color: #ff4757;">Failed to load team data. Please try again.</p>';
+    }
 }

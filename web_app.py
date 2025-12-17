@@ -177,6 +177,73 @@ def get_gameweeks():
     
     return jsonify(gameweeks)
 
+@app.route('/api/team_schedule/<int:gameweek>')
+def get_team_schedule(gameweek):
+    """Get top teams by number of games in a gameweek"""
+    madrid_tz = ZoneInfo('Europe/Madrid')
+    season_start = datetime(2025, 10, 21, tzinfo=madrid_tz)
+    
+    # Calculate date range for selected gameweek
+    week_start = season_start + timedelta(days=(gameweek - 1) * 7)
+    week_end = week_start + timedelta(days=6)
+    
+    start_date = week_start.strftime('%Y-%m-%d')
+    end_date = week_end.strftime('%Y-%m-%d')
+    
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    # Get teams with game counts and their games
+    cur.execute("""
+        SELECT 
+            t.team_id,
+            t.team_name,
+            t.team_abbreviation,
+            COUNT(DISTINCT g.game_date) as game_days,
+            COUNT(*) as total_games,
+            GROUP_CONCAT(
+                CASE 
+                    WHEN g.home_team_id = t.team_id 
+                    THEN g.game_date || '|vs|' || away.team_abbreviation
+                    ELSE g.game_date || '|@|' || home.team_abbreviation
+                END, ':::'
+            ) as games_detail
+        FROM teams t
+        JOIN games g ON (t.team_id = g.home_team_id OR t.team_id = g.away_team_id)
+        LEFT JOIN teams home ON g.home_team_id = home.team_id
+        LEFT JOIN teams away ON g.away_team_id = away.team_id
+        WHERE g.game_date >= ? AND g.game_date <= ?
+        GROUP BY t.team_id
+        ORDER BY game_days DESC, total_games DESC
+        LIMIT 10
+    """, [start_date, end_date])
+    
+    teams = []
+    for row in cur.fetchall():
+        team = dict(row)
+        # Parse games detail
+        games = []
+        if team['games_detail']:
+            for game_str in team['games_detail'].split(':::'):
+                parts = game_str.split('|')
+                if len(parts) == 3:
+                    games.append({
+                        'date': parts[0],
+                        'type': parts[1],  # 'vs' or '@'
+                        'opponent': parts[2]
+                    })
+        team['games'] = games
+        del team['games_detail']
+        teams.append(team)
+    
+    conn.close()
+    
+    return jsonify({
+        'gameweek': gameweek,
+        'date_range': f"{start_date} to {end_date}",
+        'teams': teams
+    })
+
 @app.route('/api/analyze', methods=['POST'])
 def analyze_lineup():
     """Analyze current lineup and provide recommendations"""
