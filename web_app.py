@@ -568,33 +568,31 @@ def get_game_schedule():
                 game_dt = game_dt.replace(tzinfo=madrid_tz)
             
             # Find which fantasy gameday this game belongs to
-            # Games belong to a gameday if they occur after the previous deadline 
-            # and before the next deadline. For the first gameday, include games 
-            # that are close to (within 24h before) the first deadline
+            # Assign games to gamedays based on deadline windows
             fantasy_gameday_label = None
             
             for i, (gw, day_num, deadline) in enumerate(gameweek_gamedays):
-                # Check if this is the last gameday OR if game is before next deadline
                 next_deadline = gameweek_gamedays[i+1][2] if i+1 < len(gameweek_gamedays) else None
-                prev_deadline = gameweek_gamedays[i-1][2] if i > 0 else None
                 
-                # For first gameday, include games up to 24 hours before deadline
                 if i == 0:
-                    start_window = deadline - timedelta(hours=24)
-                    if prev_deadline:
-                        start_window = prev_deadline
-                else:
-                    start_window = prev_deadline
-                
-                if next_deadline is None:
-                    # Last gameday - include all remaining games after start window
-                    if start_window is None or game_dt >= start_window:
+                    # First gameday: include all games before next deadline (or before this deadline if last)
+                    if next_deadline is None:
                         fantasy_gameday_label = f"GW{gw} Day {day_num}"
                         break
-                elif game_dt < next_deadline and (start_window is None or game_dt >= start_window):
-                    # Game occurs in this gameday's window
-                    fantasy_gameday_label = f"GW{gw} Day {day_num}"
-                    break
+                    elif game_dt < next_deadline:
+                        fantasy_gameday_label = f"GW{gw} Day {day_num}"
+                        break
+                else:
+                    # Subsequent gamedays: games between previous and next deadline
+                    prev_deadline = gameweek_gamedays[i-1][2]
+                    if next_deadline is None:
+                        # Last gameday
+                        if game_dt >= prev_deadline:
+                            fantasy_gameday_label = f"GW{gw} Day {day_num}"
+                            break
+                    elif game_dt >= prev_deadline and game_dt < next_deadline:
+                        fantasy_gameday_label = f"GW{gw} Day {day_num}"
+                        break
             
             # If no matching gameday found, assign to the last gameday in the list
             if not fantasy_gameday_label and gameweek_gamedays:
