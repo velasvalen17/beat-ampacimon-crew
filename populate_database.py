@@ -155,7 +155,7 @@ class DatabasePopulator:
         if from_date is None:
             from_date = DatabasePopulator.SEASON_START_DATE
         if to_date is None:
-            to_date = datetime.now()
+            to_date = datetime.now().date()
 
         conn = get_connection()
         cursor = conn.cursor()
@@ -339,8 +339,8 @@ class DatabasePopulator:
                     game_date_str = game.get('GAME_DATE', datetime.now().strftime('%Y-%m-%d'))
                     # Parse into datetime, then normalise to ISO string for DB
                     game_date_dt = _parse_date(game_date_str)
-                    game_date = game_date_dt
-                    game_date_iso = game_date_dt.strftime('%Y-%m-%d')
+                    game_date = game_date_dt.date() if isinstance(game_date_dt, datetime) else game_date_dt
+                    game_date_iso = game_date.strftime('%Y-%m-%d') if hasattr(game_date, 'strftime') else str(game_date)
                     
                     # Only insert if game date is within our range and not in future
                     if from_date <= game_date <= to_date:
@@ -449,7 +449,7 @@ class DatabasePopulator:
             print("Full data refresh requested. Fetching all data since season start...\n")
             DatabasePopulator.populate_player_stats(
                 from_date=DatabasePopulator.SEASON_START_DATE,
-                to_date=datetime.now()
+                to_date=datetime.now().date()
             )
         else:
             print("Running incremental update. Only fetching new data...\n")
