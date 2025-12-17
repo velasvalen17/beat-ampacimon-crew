@@ -23,31 +23,38 @@ def get_fantasy_gamedays():
     """Return fantasy gameday schedule with deadlines in Madrid timezone"""
     madrid_tz = ZoneInfo('Europe/Madrid')
     
-    # Parse gameday deadlines - these define when each fantasy gameday ENDS
+    # Parse gameday deadlines - lineup locks at these times, games before this belong to this gameday
     gamedays = [
-        # Gameweek 1
-        (1, 1, datetime(2025, 10, 22, 1, 0, tzinfo=madrid_tz)),
-        (1, 2, datetime(2025, 10, 23, 0, 30, tzinfo=madrid_tz)),
-        (1, 3, datetime(2025, 10, 24, 1, 0, tzinfo=madrid_tz)),
-        (1, 4, datetime(2025, 10, 25, 1, 0, tzinfo=madrid_tz)),
-        (1, 5, datetime(2025, 10, 26, 0, 30, tzinfo=madrid_tz)),
-        (1, 6, datetime(2025, 10, 26, 18, 30, tzinfo=madrid_tz)),
-        # Gameweek 2
-        (2, 1, datetime(2025, 10, 27, 23, 30, tzinfo=madrid_tz)),
-        (2, 2, datetime(2025, 10, 28, 23, 30, tzinfo=madrid_tz)),
-        (2, 3, datetime(2025, 10, 29, 23, 30, tzinfo=madrid_tz)),
-        (2, 4, datetime(2025, 10, 30, 23, 30, tzinfo=madrid_tz)),
-        (2, 5, datetime(2025, 10, 31, 23, 30, tzinfo=madrid_tz)),
-        (2, 6, datetime(2025, 11, 1, 21, 30, tzinfo=madrid_tz)),
-        (2, 7, datetime(2025, 11, 2, 21, 0, tzinfo=madrid_tz)),
-        # Add more gameweeks as needed...
-        # Gameweek 9 (current)
+        # Gameweek 9
         (9, 1, datetime(2025, 12, 16, 0, 30, tzinfo=madrid_tz)),
         (9, 2, datetime(2025, 12, 18, 1, 30, tzinfo=madrid_tz)),
         (9, 3, datetime(2025, 12, 19, 0, 30, tzinfo=madrid_tz)),
         (9, 4, datetime(2025, 12, 20, 0, 30, tzinfo=madrid_tz)),
         (9, 5, datetime(2025, 12, 20, 22, 30, tzinfo=madrid_tz)),
         (9, 6, datetime(2025, 12, 21, 21, 0, tzinfo=madrid_tz)),
+        # Gameweek 10
+        (10, 1, datetime(2025, 12, 23, 0, 30, tzinfo=madrid_tz)),
+        (10, 2, datetime(2025, 12, 24, 0, 30, tzinfo=madrid_tz)),
+        (10, 3, datetime(2025, 12, 25, 17, 30, tzinfo=madrid_tz)),
+        (10, 4, datetime(2025, 12, 27, 0, 30, tzinfo=madrid_tz)),
+        (10, 5, datetime(2025, 12, 27, 22, 30, tzinfo=madrid_tz)),
+        (10, 6, datetime(2025, 12, 28, 21, 0, tzinfo=madrid_tz)),
+        # Gameweek 11
+        (11, 1, datetime(2025, 12, 30, 0, 30, tzinfo=madrid_tz)),
+        (11, 2, datetime(2025, 12, 31, 1, 30, tzinfo=madrid_tz)),
+        (11, 3, datetime(2025, 12, 31, 18, 30, tzinfo=madrid_tz)),
+        (11, 4, datetime(2026, 1, 1, 23, 30, tzinfo=madrid_tz)),
+        (11, 5, datetime(2026, 1, 3, 0, 30, tzinfo=madrid_tz)),
+        (11, 6, datetime(2026, 1, 3, 22, 30, tzinfo=madrid_tz)),
+        (11, 7, datetime(2026, 1, 4, 19, 30, tzinfo=madrid_tz)),
+        # Gameweek 12
+        (12, 1, datetime(2026, 1, 6, 0, 30, tzinfo=madrid_tz)),
+        (12, 2, datetime(2026, 1, 7, 0, 30, tzinfo=madrid_tz)),
+        (12, 3, datetime(2026, 1, 8, 0, 30, tzinfo=madrid_tz)),
+        (12, 4, datetime(2026, 1, 9, 0, 30, tzinfo=madrid_tz)),
+        (12, 5, datetime(2026, 1, 10, 0, 30, tzinfo=madrid_tz)),
+        (12, 6, datetime(2026, 1, 10, 18, 30, tzinfo=madrid_tz)),
+        (12, 7, datetime(2026, 1, 11, 20, 30, tzinfo=madrid_tz)),
     ]
     
     return gamedays
@@ -537,15 +544,26 @@ def get_game_schedule():
                 game_dt = game_dt.replace(tzinfo=madrid_tz)
             
             # Find which fantasy gameday this game belongs to
-            fantasy_gameday_label = game_date_str  # Default to date
+            # A game belongs to the gameday whose deadline comes AFTER the game starts
+            # This means games between deadlines belong to the earlier gameday
+            fantasy_gameday_label = None
             
-            for gw, day_num, deadline in gameweek_gamedays:
-                # Check if this game happens before this deadline
-                # A game belongs to a gameday if it occurs before that gameday's deadline
-                # and after the previous gameday's deadline
-                if game_dt <= deadline:
-                    fantasy_gameday_label = f"GW{gw} Day {day_num}"
-                    break
+            for i, (gw, day_num, deadline) in enumerate(gameweek_gamedays):
+                # Game belongs to this gameday if it starts before this deadline
+                # and either it's the first gameday OR it starts after the previous deadline
+                if game_dt < deadline:
+                    if i == 0 or game_dt >= gameweek_gamedays[i-1][2]:
+                        fantasy_gameday_label = f"GW{gw} Day {day_num}"
+                        break
+            
+            # If no matching gameday found, assign to the last gameday in the list
+            if not fantasy_gameday_label and gameweek_gamedays:
+                gw, day_num, _ = gameweek_gamedays[-1]
+                fantasy_gameday_label = f"GW{gw} Day {day_num}"
+            
+            # Fallback to date if still no match
+            if not fantasy_gameday_label:
+                fantasy_gameday_label = game_date_str
             
             if fantasy_gameday_label not in games_by_day:
                 games_by_day[fantasy_gameday_label] = {
