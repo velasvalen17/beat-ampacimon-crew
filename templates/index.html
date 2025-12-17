@@ -60,11 +60,23 @@
                 <button id="clear-roster-btn" class="secondary-btn">Clear Roster</button>
             </div>
 
-            <!-- Right Panel: Analysis Results -->
+            <!-- Right Panel: Tabbed Results -->
             <div class="panel analysis-results">
-                <h2>Analysis & Recommendations</h2>
-                <div id="analysis-content" class="analysis-placeholder">
-                    <p>👈 Select your roster and click "Analyze" to see recommendations</p>
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="analysis">Analysis & Recommendations</button>
+                    <button class="tab-btn" data-tab="schedule">Game Schedule</button>
+                </div>
+                
+                <div id="analysis-tab" class="tab-content active">
+                    <div id="analysis-content" class="analysis-placeholder">
+                        <p>👈 Select your roster and click "Analyze" to see recommendations</p>
+                    </div>
+                </div>
+                
+                <div id="schedule-tab" class="tab-content">
+                    <div id="schedule-content" class="schedule-placeholder">
+                        <p>📅 Select your roster to see the game schedule for the selected gameweek</p>
+                    </div>
                 </div>
             </div>
         </div>

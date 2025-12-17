@@ -88,6 +88,11 @@ function createPlayerSlot(position, index) {
 
 // Setup event listeners
 function setupEventListeners() {
+    // Tabs
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+    
     // Close modal
     document.querySelector('.close').addEventListener('click', closePlayerModal);
     window.addEventListener('click', (e) => {
@@ -116,6 +121,8 @@ function setupEventListeners() {
         // Clear previous analysis when gameweek changes
         const analysisContent = document.getElementById('analysis-content');
         analysisContent.innerHTML = '<p class="analysis-placeholder">👈 Click "Analyze" to see recommendations for the selected gameweek</p>';
+        // Update schedule if roster is selected
+        updateGameSchedule();
     });
 }
 
@@ -191,6 +198,7 @@ function selectPlayer(player) {
     // Update UI
     updatePlayerSlot(position, index, player);
     updateBudgetSummary();
+    updateGameSchedule();
     closePlayerModal();
     
     // Save roster to localStorage
@@ -456,4 +464,136 @@ function clearRoster() {
     // Clear analysis
     const analysisContent = document.getElementById('analysis-content');
     analysisContent.innerHTML = '<p class="analysis-placeholder">👈 Select your roster and click "Analyze" to see recommendations</p>';
+    
+    // Clear schedule
+    const scheduleContent = document.getElementById('schedule-content');
+    scheduleContent.innerHTML = '<p class="schedule-placeholder">📅 Select your roster to see the game schedule for the selected gameweek</p>';
+}
+
+// Switch between tabs
+function switchTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.tab === tabName) {
+            btn.classList.add('active');
+        }
+    });
+    
+    // Update tab content
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    document.getElementById(`${tabName}-tab`).classList.add('active');
+}
+
+// Update game schedule for current roster
+async function updateGameSchedule() {
+    const scheduleContent = document.getElementById('schedule-content');
+    const gameweek = parseInt(document.getElementById('gameweek-selector').value);
+    
+    // Get all selected players
+    const allPlayers = [...currentRoster.backcourt, ...currentRoster.frontcourt]
+        .filter(p => p !== null && p !== undefined);
+    
+    if (allPlayers.length === 0) {
+        scheduleContent.innerHTML = '<p class="schedule-placeholder">📅 Select your roster to see the game schedule for the selected gameweek</p>';
+        return;
+    }
+    
+    scheduleContent.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading game schedule...</p></div>';
+    
+    try {
+        const playerIds = allPlayers.map(p => p.player_id);
+        const response = await fetch('/api/game_schedule', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                player_ids: playerIds,
+                gameweek: gameweek
+            })
+        });
+        
+        const data = await response.json();
+        displayGameSchedule(data, allPlayers);
+    } catch (error) {
+        console.error('Error loading game schedule:', error);
+        scheduleContent.innerHTML = '<p class="error">Failed to load game schedule. Please try again.</p>';
+    }
+}
+
+// Display game schedule
+function displayGameSchedule(data, allPlayers) {
+    const scheduleContent = document.getElementById('schedule-content');
+    
+    if (!data.games_by_day || Object.keys(data.games_by_day).length === 0) {
+        scheduleContent.innerHTML = '<div class="no-games"><p>No games found for the selected gameweek.</p></div>';
+        return;
+    }
+    
+    // Create summary
+    const totalGames = Object.values(data.games_by_day).reduce((sum, games) => sum + games.length, 0);
+    const playersWithGames = new Set();
+    Object.values(data.games_by_day).forEach(games => {
+        games.forEach(game => {
+            game.players.forEach(p => playersWithGames.add(p.player_id));
+        });
+    });
+    
+    let html = `
+        <div class="schedule-summary">
+            <div class="summary-stats">
+                <div class="stat-item">
+                    <div class="stat-value">${totalGames}</div>
+                    <div class="stat-label">Total Games</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${playersWithGames.size}</div>
+                    <div class="stat-label">Players with Games</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${allPlayers.length - playersWithGames.size}</div>
+                    <div class="stat-label">Players without Games</div>
+                </div>
+            </div>
+        </div>
+        <div class="schedule-grid">
+    `;
+    
+    // Sort days chronologically
+    const sortedDays = Object.keys(data.games_by_day).sort();
+    
+    sortedDays.forEach(day => {
+        const games = data.games_by_day[day];
+        const dayDate = new Date(day);
+        const dayName = dayDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+        
+        html += `
+            <div class="game-day">
+                <div class="game-day-header">${dayName} - ${games.length} game${games.length !== 1 ? 's' : ''}</div>
+                <div class="game-list">
+        `;
+        
+        games.forEach(game => {
+            html += `
+                <div class="game-item">
+                    <div class="game-matchup">${game.matchup}</div>
+                    <div class="game-time">${game.time || 'TBD'}</div>
+                    <div class="game-players">
+                        ${game.players.map(p => `<span class="player-badge">${p.player_name} (${p.team})</span>`).join('')}
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += `
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    scheduleContent.innerHTML = html;
 }
