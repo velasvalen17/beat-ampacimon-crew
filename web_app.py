@@ -426,81 +426,81 @@ def get_game_schedule():
         
         conn = get_db_connection()
         cur = conn.cursor()
-    
-    # Get teams for the selected players
-    placeholders = ','.join('?' * len(player_ids))
-    cur.execute(f"""
-        SELECT DISTINCT team_id 
-        FROM players 
-        WHERE player_id IN ({placeholders})
-    """, player_ids)
-    
-    team_ids = [row['team_id'] for row in cur.fetchall()]
-    
-    if not team_ids:
+        
+        # Get teams for the selected players
+        placeholders = ','.join('?' * len(player_ids))
+        cur.execute(f"""
+            SELECT DISTINCT team_id 
+            FROM players 
+            WHERE player_id IN ({placeholders})
+        """, player_ids)
+        
+        team_ids = [row['team_id'] for row in cur.fetchall()]
+        
+        if not team_ids:
+            conn.close()
+            return jsonify({'games_by_day': {}})
+        
+        # Get all games for these teams in the gameweek
+        team_placeholders = ','.join('?' * len(team_ids))
+        cur.execute(f"""
+            SELECT 
+                g.game_id,
+                g.game_date,
+                g.game_time,
+                home.team_name as home_team,
+                home.team_abbreviation as home_abbr,
+                away.team_name as away_team,
+                away.team_abbreviation as away_abbr,
+                g.home_team_id,
+                g.away_team_id
+            FROM games g
+            JOIN teams home ON g.home_team_id = home.team_id
+            JOIN teams away ON g.away_team_id = away.team_id
+            WHERE g.game_date >= ? AND g.game_date <= ?
+            AND (g.home_team_id IN ({team_placeholders}) OR g.away_team_id IN ({team_placeholders}))
+            ORDER BY g.game_date, g.game_time
+        """, [week_start.strftime('%Y-%m-%d'), week_end.strftime('%Y-%m-%d')] + team_ids + team_ids)
+        
+        games = cur.fetchall()
+        
+        # Get player info
+        cur.execute(f"""
+            SELECT player_id, player_name, team_id, t.team_abbreviation as team
+            FROM players p
+            JOIN teams t ON p.team_id = t.team_id
+            WHERE player_id IN ({placeholders})
+        """, player_ids)
+        
+        players_dict = {row['player_id']: dict(row) for row in cur.fetchall()}
         conn.close()
-        return jsonify({'games_by_day': {}})
-    
-    # Get all games for these teams in the gameweek
-    team_placeholders = ','.join('?' * len(team_ids))
-    cur.execute(f"""
-        SELECT 
-            g.game_id,
-            g.game_date,
-            g.game_time,
-            home.team_name as home_team,
-            home.team_abbreviation as home_abbr,
-            away.team_name as away_team,
-            away.team_abbreviation as away_abbr,
-            g.home_team_id,
-            g.away_team_id
-        FROM games g
-        JOIN teams home ON g.home_team_id = home.team_id
-        JOIN teams away ON g.away_team_id = away.team_id
-        WHERE g.game_date >= ? AND g.game_date <= ?
-        AND (g.home_team_id IN ({team_placeholders}) OR g.away_team_id IN ({team_placeholders}))
-        ORDER BY g.game_date, g.game_time
-    """, [week_start.strftime('%Y-%m-%d'), week_end.strftime('%Y-%m-%d')] + team_ids + team_ids)
-    
-    games = cur.fetchall()
-    
-    # Get player info
-    cur.execute(f"""
-        SELECT player_id, player_name, team_id, t.team_abbreviation as team
-        FROM players p
-        JOIN teams t ON p.team_id = t.team_id
-        WHERE player_id IN ({placeholders})
-    """, player_ids)
-    
-    players_dict = {row['player_id']: dict(row) for row in cur.fetchall()}
-    conn.close()
-    
-    # Organize games by day with players
-    games_by_day = {}
-    for game in games:
-        game_date = game['game_date']
         
-        if game_date not in games_by_day:
-            games_by_day[game_date] = []
-        
-        # Find which players are in this game
-        game_players = []
-        for player_id, player_info in players_dict.items():
-            if player_info['team_id'] in [game['home_team_id'], game['away_team_id']]:
-                game_players.append({
-                    'player_id': player_id,
-                    'player_name': player_info['player_name'],
-                    'team': player_info['team']
+        # Organize games by day with players
+        games_by_day = {}
+        for game in games:
+            game_date = game['game_date']
+            
+            if game_date not in games_by_day:
+                games_by_day[game_date] = []
+            
+            # Find which players are in this game
+            game_players = []
+            for player_id, player_info in players_dict.items():
+                if player_info['team_id'] in [game['home_team_id'], game['away_team_id']]:
+                    game_players.append({
+                        'player_id': player_id,
+                        'player_name': player_info['player_name'],
+                        'team': player_info['team']
+                    })
+            
+            if game_players:  # Only include games where our players are playing
+                games_by_day[game_date].append({
+                    'game_id': game['game_id'],
+                    'matchup': f"{game['home_abbr']} vs {game['away_abbr']}",
+                    'time': game['game_time'],
+                    'players': game_players
                 })
         
-        if game_players:  # Only include games where our players are playing
-            games_by_day[game_date].append({
-                'game_id': game['game_id'],
-                'matchup': f"{game['home_abbr']} vs {game['away_abbr']}",
-                'time': game['game_time'],
-                'players': game_players
-            })
-    
         return jsonify({'games_by_day': games_by_day})
     
     except Exception as e:
