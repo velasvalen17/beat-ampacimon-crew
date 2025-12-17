@@ -117,9 +117,6 @@ function setupEventListeners() {
         filterPlayers(e.target.value);
     });
     
-    // Analyze button
-    document.getElementById('analyze-btn').addEventListener('click', analyzeRoster);
-    
     // Clear roster button
     document.getElementById('clear-roster-btn').addEventListener('click', clearRoster);
     
@@ -130,7 +127,7 @@ function setupEventListeners() {
     document.getElementById('gameweek-selector').addEventListener('change', () => {
         // Clear previous analysis when gameweek changes
         const analysisContent = document.getElementById('analysis-content');
-        analysisContent.innerHTML = '<p class="analysis-placeholder">👈 Click "Analyze" to see recommendations for the selected gameweek</p>';
+        analysisContent.innerHTML = '<p class="analysis-placeholder">👈 Click "Analysis & Recommendations" tab to see updated recommendations</p>';
         // Update schedule if roster is selected
         updateGameSchedule();
         // Update team schedule if on teams tab
@@ -929,7 +926,7 @@ function clearRoster() {
     
     // Clear analysis
     const analysisContent = document.getElementById('analysis-content');
-    analysisContent.innerHTML = '<p class="analysis-placeholder">👈 Select your roster and click "Analyze" to see recommendations</p>';
+    analysisContent.innerHTML = '<p class="analysis-placeholder">👈 Select your roster and click "Analysis & Recommendations" tab</p>';
     
     // Clear schedule
     const scheduleContent = document.getElementById('schedule-content');
@@ -951,6 +948,11 @@ function switchTab(tabName) {
         content.classList.remove('active');
     });
     document.getElementById(`${tabName}-tab`).classList.add('active');
+    
+    // Trigger analysis when switching to analysis tab
+    if (tabName === 'analysis') {
+        analyzeRoster();
+    }
     
     // Load team schedule if switching to teams tab
     if (tabName === 'teams') {
