@@ -864,5 +864,140 @@ def get_game_schedule():
         traceback.print_exc()
         return jsonify({'error': str(e), 'games_by_day': {}}), 500
 
+@app.route('/api/optimal_team/<int:gameweek>', methods=['GET'])
+def get_optimal_team(gameweek):
+    """Build the optimal 10-player team for a gameweek based on last 7 games performance"""
+    try:
+        conn = get_db_connection()
+        
+        # Get gameweek date range
+        gameweek_query = """
+            SELECT start_date, end_date 
+            FROM gameweeks 
+            WHERE gameweek = ?
+        """
+        gw_row = conn.execute(gameweek_query, (gameweek,)).fetchone()
+        if not gw_row:
+            return jsonify({'error': 'Invalid gameweek'}), 400
+        
+        start_date = gw_row['start_date']
+        end_date = gw_row['end_date']
+        
+        # Get all players with their last 7 games stats and games in this gameweek
+        query = """
+            WITH recent_stats AS (
+                SELECT 
+                    pgs.player_id,
+                    pgs.fantasy_points,
+                    pgs.minutes_played,
+                    ROW_NUMBER() OVER (PARTITION BY pgs.player_id ORDER BY g.game_date DESC) as rn
+                FROM player_game_stats pgs
+                JOIN games g ON pgs.game_id = g.game_id
+                WHERE pgs.minutes_played > 0
+            ),
+            player_averages AS (
+                SELECT 
+                    player_id,
+                    AVG(fantasy_points) as avg_fp,
+                    AVG(minutes_played) as avg_minutes,
+                    COUNT(*) as games_played
+                FROM recent_stats
+                WHERE rn <= 7
+                GROUP BY player_id
+                HAVING COUNT(*) >= 3 AND AVG(minutes_played) >= 18
+            ),
+            gameweek_games AS (
+                SELECT 
+                    p.player_id,
+                    COUNT(DISTINCT g.game_id) as games_in_gameweek
+                FROM players p
+                JOIN teams t ON p.team_id = t.team_id
+                JOIN games g ON (g.home_team_id = t.team_id OR g.away_team_id = t.team_id)
+                WHERE g.game_date >= ? AND g.game_date <= ?
+                GROUP BY p.player_id
+            )
+            SELECT 
+                p.player_id,
+                p.player_name,
+                p.position,
+                p.salary,
+                t.abbreviation as team,
+                pa.avg_fp,
+                pa.avg_minutes,
+                pa.games_played as recent_games,
+                COALESCE(gg.games_in_gameweek, 0) as games_in_gameweek,
+                pa.avg_fp * COALESCE(gg.games_in_gameweek, 0) as projected_total_fp
+            FROM players p
+            JOIN teams t ON p.team_id = t.team_id
+            JOIN player_averages pa ON p.player_id = pa.player_id
+            LEFT JOIN gameweek_games gg ON p.player_id = gg.player_id
+            WHERE COALESCE(gg.games_in_gameweek, 0) >= 2
+            ORDER BY projected_total_fp DESC
+        """
+        
+        cursor = conn.execute(query, (start_date, end_date))
+        all_candidates = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        
+        if not all_candidates:
+            return jsonify({'error': 'No eligible players found', 'optimal_team': []})
+        
+        # Separate by position
+        backcourt = [p for p in all_candidates if 'G' in p['position']]
+        frontcourt = [p for p in all_candidates if 'F' in p['position'] or 'C' in p['position']]
+        
+        # Greedy optimization: Select top performers within budget
+        budget = 100.0
+        selected_backcourt = []
+        selected_frontcourt = []
+        
+        # Select 5 backcourt players
+        for player in backcourt:
+            if len(selected_backcourt) >= 5:
+                break
+            if sum(p['salary'] for p in selected_backcourt) + player['salary'] <= budget * 0.5:
+                selected_backcourt.append(player)
+        
+        # If we couldn't get 5 with half budget, try with full budget
+        if len(selected_backcourt) < 5:
+            selected_backcourt = []
+            for player in backcourt:
+                if len(selected_backcourt) >= 5:
+                    break
+                remaining_budget = budget - sum(p['salary'] for p in selected_backcourt)
+                if player['salary'] <= remaining_budget:
+                    selected_backcourt.append(player)
+        
+        # Calculate remaining budget for frontcourt
+        used_budget = sum(p['salary'] for p in selected_backcourt)
+        remaining_budget = budget - used_budget
+        
+        # Select 5 frontcourt players
+        for player in frontcourt:
+            if len(selected_frontcourt) >= 5:
+                break
+            if sum(p['salary'] for p in selected_frontcourt) + player['salary'] <= remaining_budget:
+                selected_frontcourt.append(player)
+        
+        optimal_team = selected_backcourt + selected_frontcourt
+        total_salary = sum(p['salary'] for p in optimal_team)
+        total_projected_fp = sum(p['projected_total_fp'] for p in optimal_team)
+        
+        return jsonify({
+            'gameweek': gameweek,
+            'date_range': f"{start_date} to {end_date}",
+            'optimal_team': optimal_team,
+            'total_salary': round(total_salary, 1),
+            'total_projected_fp': round(total_projected_fp, 1),
+            'backcourt_count': len(selected_backcourt),
+            'frontcourt_count': len(selected_frontcourt)
+        })
+    
+    except Exception as e:
+        print(f"Error in get_optimal_team: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
