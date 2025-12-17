@@ -576,25 +576,17 @@ def get_game_schedule():
         madrid_tz = ZoneInfo('Europe/Madrid')
         
         for game in games:
-            # Parse game datetime from database (stored in US venue local time)
+            # Parse game datetime from database (now stored in Madrid timezone after ICS import)
             game_date_str = game['game_date']
             game_time_str = game['game_time'] or '00:00'
             
-            # Get the venue timezone (home team determines venue)
-            home_abbr = game['home_abbr']
-            venue_tz = get_team_timezone(home_abbr)
-            
-            # Parse datetime in venue's local timezone
+            # Parse datetime and make it timezone-aware in Madrid timezone
             try:
-                game_dt_naive = datetime.strptime(f"{game_date_str} {game_time_str}", '%Y-%m-%d %H:%M')
-                # Make timezone-aware in venue timezone
-                game_dt_venue = game_dt_naive.replace(tzinfo=venue_tz)
-                # Convert to Madrid timezone for comparison with deadlines
-                game_dt = game_dt_venue.astimezone(madrid_tz)
+                game_dt = datetime.strptime(f"{game_date_str} {game_time_str}", '%Y-%m-%d %H:%M')
+                game_dt = game_dt.replace(tzinfo=madrid_tz)
             except:
-                game_dt_naive = datetime.strptime(game_date_str, '%Y-%m-%d')
-                game_dt_venue = game_dt_naive.replace(tzinfo=venue_tz)
-                game_dt = game_dt_venue.astimezone(madrid_tz)
+                game_dt = datetime.strptime(game_date_str, '%Y-%m-%d')
+                game_dt = game_dt.replace(tzinfo=madrid_tz)
             
             # Find which fantasy gameday this game belongs to
             # Rule: Deadline is ~30 min before first game. Games tip off AFTER deadline.
