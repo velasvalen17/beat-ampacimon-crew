@@ -493,10 +493,10 @@ async function updateGameSchedule() {
     const gameweek = parseInt(document.getElementById('gameweek-selector').value);
     
     // Get all selected players
-    const allPlayers = [...currentRoster.backcourt, ...currentRoster.frontcourt]
+    const selectedPlayers = [...currentRoster.backcourt, ...currentRoster.frontcourt]
         .filter(p => p !== null && p !== undefined);
     
-    if (allPlayers.length === 0) {
+    if (selectedPlayers.length === 0) {
         scheduleContent.innerHTML = '<p class="schedule-placeholder">📅 Select your roster to see the game schedule for the selected gameweek</p>';
         return;
     }
@@ -504,7 +504,7 @@ async function updateGameSchedule() {
     scheduleContent.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading game schedule...</p></div>';
     
     try {
-        const playerIds = allPlayers.map(p => p.player_id);
+        const playerIds = selectedPlayers.map(p => p.player_id);
         const response = await fetch('/api/game_schedule', {
             method: 'POST',
             headers: {
@@ -516,8 +516,12 @@ async function updateGameSchedule() {
             })
         });
         
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data = await response.json();
-        displayGameSchedule(data, allPlayers);
+        displayGameSchedule(data, selectedPlayers);
     } catch (error) {
         console.error('Error loading game schedule:', error);
         scheduleContent.innerHTML = '<p class="error">Failed to load game schedule. Please try again.</p>';
