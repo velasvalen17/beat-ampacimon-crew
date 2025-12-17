@@ -370,8 +370,14 @@ function displayAnalysis(data) {
             const costStr = rec.cost >= 0 ? `+$${rec.cost.toFixed(1)}M` : `-$${Math.abs(rec.cost).toFixed(1)}M`;
             html += `<p><strong>Net Cost:</strong> ${costStr}</p>`;
             
+            if (rec.games_improvement !== undefined) {
+                const gamesColor = rec.games_improvement > 0 ? '#2ecc71' : (rec.games_improvement < 0 ? '#ff4757' : '#666');
+                const gamesStr = rec.games_improvement >= 0 ? `+${rec.games_improvement}` : rec.games_improvement;
+                html += `<p><strong>Total Games:</strong> <span style="color: ${gamesColor};">${gamesStr} games</span></p>`;
+            }
+            
             if (rec.fp_improvement !== undefined) {
-                const fpColor = rec.fp_improvement > 0 ? '#2ecc71' : '#ff4757';
+                const fpColor = rec.fp_improvement > 0 ? '#2ecc71' : (rec.fp_improvement < -0.5 ? '#ff4757' : '#666');
                 const fpStr = rec.fp_improvement >= 0 ? `+${rec.fp_improvement.toFixed(1)}` : rec.fp_improvement.toFixed(1);
                 html += `<p><strong>Fantasy Points:</strong> <span style="color: ${fpColor};">${fpStr} FP/G</span></p>`;
             }

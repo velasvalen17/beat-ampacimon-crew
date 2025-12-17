@@ -366,6 +366,9 @@ def analyze_lineup():
         
         best_options = []
         
+        # Calculate average fantasy points of current roster for comparison
+        roster_avg_fp = sum(p['fantasy_avg'] for p in roster_details) / len(roster_details) if roster_details else 0
+        
         # Try combinations of 2 drops and 2 adds
         for drops in itertools.combinations(roster_details, 2):
             drop_salary = sum(d['salary'] for d in drops)
@@ -378,10 +381,14 @@ def analyze_lineup():
             if drop_bc > 4 or drop_fc > 4:
                 continue
             
-            for adds in itertools.combinations(candidates[:30], 2):
+            # Calculate average FP of players being dropped
+            drop_avg_fp = sum(d['fantasy_avg'] for d in drops) / len(drops)
+            
+            for adds in itertools.combinations(candidates[:50], 2):
                 add_salary = sum(a['salary'] for a in adds)
                 
-                if add_salary > budget:
+                # More flexible budget usage: allow spending up to 95% of available budget
+                if add_salary > budget or add_salary < budget * 0.5:
                     continue
                 
                 # Check position balance
@@ -394,10 +401,21 @@ def analyze_lineup():
                 if new_bc_count < 3 or new_bc_count > 5 or new_fc_count < 3 or new_fc_count > 5:
                     continue
                 
+                # Calculate average FP of players being added
+                add_avg_fp = sum(a['fantasy_avg'] for a in adds) / len(adds)
+                
+                # Quality check: New players should have similar or better FP than drops
+                # Allow up to 15% drop in FP only if they significantly improve depth
+                fp_threshold = drop_avg_fp * 0.85
+                if add_avg_fp < fp_threshold:
+                    continue
+                
+                # Each new player should be at least 70% of roster average (avoid very weak players)
+                if any(a['fantasy_avg'] < roster_avg_fp * 0.7 and a['fantasy_avg'] > 0 for a in adds):
+                    continue
+                
                 # Calculate comprehensive improvement score
-                # Priority 1: Roster depth (covering problem days)
-                # Priority 2: Fantasy points per game
-                # Priority 3: Total games played
+                # Balanced priorities: Games > Fantasy Points > Depth
                 
                 depth_score = 0
                 fp_improvement = 0
@@ -408,29 +426,41 @@ def analyze_lineup():
                 add_fp = sum(a['fantasy_avg'] for a in adds)
                 fp_improvement = add_fp - drop_fp
                 
-                # Calculate depth improvement
+                # Calculate games and depth improvement
+                drop_total_games = sum(len(player_days.get(d['player_id'], [])) for d in drops)
+                
                 for add in adds:
                     add_dates = add['game_dates'].split(',')
+                    games_improvement += len(add_dates)
+                    
+                    # Bonus for covering problem days
                     for date in add_dates:
                         if date in problem_dates:
-                            depth_score += 100  # High weight for covering problem days
-                    games_improvement += len(add_dates)
+                            depth_score += 50
                 
+                games_improvement -= drop_total_games
+                
+                # Penalty for removing coverage on problem days
                 for drop in drops:
                     if drop['player_id'] in player_days:
                         for date in player_days[drop['player_id']]:
                             if date in problem_dates:
-                                depth_score -= 50  # Penalty for removing coverage
+                                depth_score -= 30
                 
-                # Combined score: Depth is most important, then FP, then games
-                score = depth_score * 10 + fp_improvement * 5 + games_improvement
+                # Budget efficiency bonus: prefer using more of available budget
+                budget_usage = add_salary / budget if budget > 0 else 0
+                budget_bonus = budget_usage * 20
+                
+                # Combined score: Games (most important), then FP, then depth, then budget
+                score = games_improvement * 100 + fp_improvement * 50 + depth_score + budget_bonus
                 
                 best_options.append({
-                    'drops': [{'id': d['player_id'], 'name': d['player_name'], 'salary': d['salary'], 'position': d['position'], 'fantasy_avg': d['fantasy_avg']} for d in drops],
-                    'adds': [{'id': a['player_id'], 'name': a['player_name'], 'salary': a['salary'], 'position': a['position'], 'games': len(a['game_dates'].split(',')), 'fantasy_avg': a['fantasy_avg']} for a in adds],
+                    'drops': [{'player_id': d['player_id'], 'name': d['player_name'], 'salary': d['salary'], 'position': d['position'], 'fantasy_avg': d['fantasy_avg'], 'team': d.get('team', '')} for d in drops],
+                    'adds': [{'player_id': a['player_id'], 'name': a['player_name'], 'salary': a['salary'], 'position': a['position'], 'games': len(a['game_dates'].split(',')), 'fantasy_avg': a['fantasy_avg'], 'team': a.get('team', '')} for a in adds],
                     'cost': add_salary - drop_salary,
                     'fp_improvement': fp_improvement,
                     'depth_score': depth_score,
+                    'games_improvement': games_improvement,
                     'score': score
                 })
         
