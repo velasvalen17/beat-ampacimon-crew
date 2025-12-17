@@ -7,6 +7,7 @@ let currentRoster = {
 let currentSlot = null;
 let currentRecommendations = [];
 let currentAnalysisData = null;
+let selectedComparisonRecIndex = 0;
 
 // Initialize app
 document.addEventListener('DOMContentLoaded', () => {
@@ -122,6 +123,15 @@ function setupEventListeners() {
     
     // Budget input
     document.getElementById('available-budget').addEventListener('input', updateBudgetSummary);
+    
+    // Comparison recommendation selector
+    document.getElementById('comparison-rec-selector').addEventListener('change', async (e) => {
+        const recIndex = parseInt(e.target.value);
+        if (recIndex >= 0 && currentAnalysisData && currentAnalysisData.recommendations) {
+            selectedComparisonRecIndex = recIndex;
+            await updateRecommendedScheduleInComparison(currentAnalysisData, recIndex);
+        }
+    });
     
     // Gameweek selector
     document.getElementById('gameweek-selector').addEventListener('change', () => {
@@ -597,12 +607,27 @@ async function viewRecommendationDetails(recIndex) {
 
 // Populate schedule comparison view
 async function populateComparisonView(analysisData) {
+    // Populate recommendation selector
+    const selector = document.getElementById('comparison-rec-selector');
+    selector.innerHTML = '<option value="-1">Select a recommendation...</option>';
+    
+    if (analysisData.recommendations && analysisData.recommendations.length > 0) {
+        analysisData.recommendations.forEach((rec, index) => {
+            const option = document.createElement('option');
+            option.value = index;
+            option.textContent = `Option ${index + 1}`;
+            if (index === 0) option.selected = true;
+            selector.appendChild(option);
+        });
+        selectedComparisonRecIndex = 0;
+    }
+    
     // Get current roster schedule
     await updateCurrentScheduleInComparison();
     
-    // Get recommended roster schedule (using first recommendation)
+    // Get recommended roster schedule (using selected recommendation)
     if (analysisData.recommendations && analysisData.recommendations.length > 0) {
-        await updateRecommendedScheduleInComparison(analysisData);
+        await updateRecommendedScheduleInComparison(analysisData, selectedComparisonRecIndex);
     }
 }
 
@@ -643,11 +668,11 @@ async function updateCurrentScheduleInComparison() {
 }
 
 // Update recommended roster schedule in comparison view
-async function updateRecommendedScheduleInComparison(analysisData) {
+async function updateRecommendedScheduleInComparison(analysisData, recIndex = 0) {
     const recommendedScheduleDiv = document.getElementById('recommended-schedule');
-    const firstRec = analysisData.recommendations[0];
+    const selectedRec = analysisData.recommendations[recIndex];
     
-    if (!firstRec) {
+    if (!selectedRec) {
         recommendedScheduleDiv.innerHTML = '<p class="schedule-placeholder">No recommendations available</p>';
         return;
     }
@@ -662,7 +687,7 @@ async function updateRecommendedScheduleInComparison(analysisData) {
     const remainingIds = currentPlayerIds.filter(id => !dropsIds.has(id));
     
     // Add the new players
-    const recommendedIds = [...remainingIds, ...firstRec.adds.map(a => a.player_id)];
+    const recommendedIds = [...remainingIds, ...selectedRec.adds.map(a => a.player_id)];
     
     console.log('Current roster IDs:', currentPlayerIds);
     console.log('Drops:', dropsIds);
@@ -695,7 +720,7 @@ async function updateRecommendedScheduleInComparison(analysisData) {
             }
         });
         // Add new players
-        firstRec.adds.forEach(add => {
+        selectedRec.adds.forEach(add => {
             recommendedPlayers.push({
                 player_id: add.player_id,
                 player_name: add.name,
@@ -705,7 +730,7 @@ async function updateRecommendedScheduleInComparison(analysisData) {
             });
         });
         
-        recommendedScheduleDiv.innerHTML = buildScheduleHTML(data, recommendedPlayers, firstRec);
+        recommendedScheduleDiv.innerHTML = buildScheduleHTML(data, recommendedPlayers, selectedRec);
     } catch (error) {
         console.error('Error loading recommended schedule:', error);
         recommendedScheduleDiv.innerHTML = '<p class="error">Failed to load schedule</p>';
