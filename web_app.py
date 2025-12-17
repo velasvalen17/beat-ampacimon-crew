@@ -91,7 +91,7 @@ def get_players():
     conn = get_db_connection()
     cur = conn.cursor()
     
-    # Get players with recent fantasy stats (last 7 days)
+    # Get players with recent fantasy stats (last 30 days or any available data)
     cur.execute("""
         WITH recent_stats AS (
             SELECT 
@@ -100,9 +100,9 @@ def get_players():
                     3 * pgs.steals + 3 * pgs.blocks - pgs.turnovers) as fantasy_avg
             FROM player_game_stats pgs
             JOIN games g ON pgs.game_id = g.game_id
-            WHERE g.game_date >= date('now', '-7 days')
+            WHERE g.game_date >= '2025-11-01'
             GROUP BY pgs.player_id
-            HAVING COUNT(*) >= 1
+            HAVING COUNT(*) >= 2
         )
         SELECT 
             p.player_id,
@@ -279,15 +279,17 @@ def analyze_lineup():
                 else:
                     day_coverage[day]['fc'] += 1
     
-    # Map to gameweek.day labels
+    # Map to gameweek.day labels (relative to the selected gameweek)
     day_labels = {}
     insufficient_days = []
     
     for day in sorted(day_coverage.keys()):
         day_obj = datetime.strptime(day, '%Y-%m-%d').replace(tzinfo=madrid_tz)
-        days_since_start = (day_obj - season_start).days
-        day_in_week = (days_since_start % 7) + 1
-        gameweek = (days_since_start // 7) + 1
+        # Calculate day number within THIS gameweek (1-7)
+        days_from_week_start = (day_obj - week_start).days
+        day_in_week = days_from_week_start + 1
+        
+        # Use the requested gameweek number, not calculated from season start
         label = f"{gameweek}.{day_in_week}"
         day_labels[day] = label
         
