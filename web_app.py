@@ -521,13 +521,13 @@ def get_game_schedule():
             game_date_str = game['game_date']
             game_time_str = game['game_time'] or '00:00'
             
-            # Combine date and time - assume stored in UTC or needs conversion
+            # Combine date and time and make it timezone-aware
             try:
                 game_dt = datetime.strptime(f"{game_date_str} {game_time_str}", '%Y-%m-%d %H:%M')
-                # For now, assume game times are already in Madrid time or close enough
-                # In production, you'd convert from game's local timezone to Madrid
+                game_dt = game_dt.replace(tzinfo=madrid_tz)
             except:
                 game_dt = datetime.strptime(game_date_str, '%Y-%m-%d')
+                game_dt = game_dt.replace(tzinfo=madrid_tz)
             
             # Find which fantasy gameday this game belongs to
             fantasy_gameday_label = game_date_str  # Default to date
