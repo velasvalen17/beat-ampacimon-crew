@@ -444,8 +444,15 @@ def get_game_schedule():
     try:
         data = request.json
         print(f"Received data: {data}")
+        
+        if not data:
+            return jsonify({'error': 'No data received', 'games_by_day': {}}), 400
+        
         player_ids = data.get('player_ids', [])
-        gameweek = int(data.get('gameweek', 9))
+        gameweek = data.get('gameweek', 9)
+        if gameweek is None:
+            gameweek = 9
+        gameweek = int(gameweek)
         print(f"Player IDs: {player_ids}, Gameweek: {gameweek}")
         
         if not player_ids:
