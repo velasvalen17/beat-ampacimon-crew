@@ -358,24 +358,28 @@ def analyze_lineup():
         
         candidates = [dict(row) for row in cur.fetchall()]
         
-        # Get recent stats for current roster
+        # Get fantasy stats for current roster from ALL games (not date-filtered)
         cur.execute(f"""
             SELECT 
                 pgs.player_id,
+                COUNT(*) as games_played,
                 AVG(pgs.points + pgs.rebounds + 2 * pgs.assists + 
                     3 * pgs.blocks + 3 * pgs.steals) as fantasy_avg
             FROM player_game_stats pgs
-            JOIN games g ON pgs.game_id = g.game_id
             WHERE pgs.player_id IN ({placeholders})
-                AND g.game_date >= '2025-12-09' AND g.game_date <= '2025-12-15'
             GROUP BY pgs.player_id
         """, current_roster)
         
-        roster_stats = {row['player_id']: row['fantasy_avg'] for row in cur.fetchall()}
+        roster_stats = {row['player_id']: {
+            'fantasy_avg': row['fantasy_avg'],
+            'games_played': row['games_played']
+        } for row in cur.fetchall()}
         
         # Add fantasy stats to roster details
         for player in roster_details:
-            player['fantasy_avg'] = roster_stats.get(player['player_id'], 0)
+            stats = roster_stats.get(player['player_id'], {'fantasy_avg': 0, 'games_played': 0})
+            player['fantasy_avg'] = stats['fantasy_avg']
+            player['games_played'] = stats['games_played']
         
         # Find best 2 transaction pairs
         budget_with_drops = available_budget
@@ -383,7 +387,9 @@ def analyze_lineup():
         best_options = []
         
         # Calculate average fantasy points of current roster for comparison
-        roster_avg_fp = sum(p['fantasy_avg'] for p in roster_details) / len(roster_details) if roster_details else 0
+        players_with_stats = [p for p in roster_details if p['fantasy_avg'] > 0]
+        roster_avg_fp = sum(p['fantasy_avg'] for p in players_with_stats) / len(players_with_stats) if players_with_stats else 0
+        roster_total_fp = sum(p['fantasy_avg'] for p in roster_details)
         
         # Try combinations of 2 drops and 2 adds
         for drops in itertools.combinations(roster_details, 2):
@@ -488,6 +494,8 @@ def analyze_lineup():
     
     return jsonify({
         'roster': roster_details,
+        'roster_avg_fp': round(roster_avg_fp, 1),
+        'roster_total_fp': round(roster_total_fp, 1),
         'day_coverage': {day_labels[day]: day_coverage[day] for day in day_coverage},
         'insufficient_days': insufficient_days,
         'recommendations': recommendations,

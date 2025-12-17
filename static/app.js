@@ -315,6 +315,14 @@ function displayAnalysis(data) {
     let html = `<h3>📊 Roster Coverage Analysis - Gameweek ${data.gameweek}</h3>`;
     html += `<p style="color: #666; font-size: 0.9rem; margin-bottom: 15px;">${data.date_range}</p>`;
     
+    // Display roster fantasy points average
+    if (data.roster_avg_fp !== undefined) {
+        html += `<div style="background: #e8f5e9; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #4caf50;">`;
+        html += `<p style="margin: 0; font-size: 1.1rem;"><strong>Current Roster Average:</strong> <span style="color: #2e7d32; font-size: 1.3rem; font-weight: bold;">${data.roster_avg_fp} FP/G</span></p>`;
+        html += `<p style="margin: 5px 0 0 0; color: #666; font-size: 0.9rem;">Total projected: ${data.roster_total_fp.toFixed(1)} fantasy points per game</p>`;
+        html += `</div>`;
+    }
+    
     // Day coverage table
     html += '<table class="coverage-table"><thead><tr><th>Game Day</th><th>Players</th><th>BC</th><th>FC</th><th>Status</th></tr></thead><tbody>';
     
