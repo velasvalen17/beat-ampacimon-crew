@@ -405,28 +405,47 @@ function displayAnalysis(data) {
             if (rec.depth_score !== undefined && rec.depth_score > 0) {
                 html += `<p><strong>Roster Depth:</strong> <span style="color: #2ecc71;">Improves coverage on problem days ✓</span></p>`;
             }
+            
+            if (rec.team_days_improvement !== undefined) {
+                const teamColor = rec.team_days_improvement > 0 ? '#2ecc71' : (rec.team_days_improvement < 0 ? '#ff4757' : '#666');
+                const teamStr = rec.team_days_improvement >= 0 ? `+${rec.team_days_improvement}` : rec.team_days_improvement;
+                html += `<p><strong>Team Schedule:</strong> <span style="color: ${teamColor};">${teamStr} game days</span></p>`;
+            }
             html += '</div>';
+            
+            // Display warnings/reasons if any
+            if (rec.warnings && rec.warnings.length > 0) {
+                html += '<div style="margin-top: 15px; padding: 12px; background: #f8f9fa; border-radius: 6px; border-left: 3px solid #6c757d;">';
+                html += '<div style="font-weight: 600; margin-bottom: 8px; color: #495057;">📋 Analysis:</div>';
+                html += '<ul style="margin: 0; padding-left: 20px; font-size: 0.9rem;">';
+                rec.warnings.forEach(warning => {
+                    const isPositive = warning.startsWith('✅');
+                    const isWarning = warning.startsWith('⚠️');
+                    const color = isPositive ? '#2ecc71' : (isWarning ? '#ff9800' : '#6c757d');
+                    html += `<li style="color: ${color}; margin: 4px 0;">${warning}</li>`;
+                });
+                html += '</ul></div>';
+            }
             
             html += `<button class="view-recommendation-btn" onclick="viewRecommendationDetails(${index})">📊 View Schedule & Roster Details</button>`;
             
             html += '</div>';
         });
     } else if (data.insufficient_days && data.insufficient_days.length > 0) {
-        // There are gaps but no good recommendations found
+        // There are gaps but no recommendations found at all
         html += '<div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-top: 20px; border-left: 4px solid #ffc107;">';
-        html += '<h4 style="color: #856404; margin-top: 0;">⚠️ Limited Transaction Options</h4>';
-        html += '<p style="color: #856404; margin-bottom: 10px;">Your roster has gaps in coverage, but no ideal transactions were found that meet all criteria:</p>';
+        html += '<h4 style="color: #856404; margin-top: 0;">⚠️ No Valid Transaction Options</h4>';
+        html += '<p style="color: #856404; margin-bottom: 10px;">Your roster has gaps but no valid transactions could be generated. This usually means:</p>';
         html += '<ul style="color: #856404; margin: 10px 0;">';
-        html += '<li>Players must improve games played on problem days</li>';
-        html += '<li>New players should have similar or better fantasy averages</li>';
-        html += '<li>Transactions must fit within your budget</li>';
-        html += '<li>Must maintain position balance (3-5 backcourt, 3-5 frontcourt)</li>';
+        html += '<li><strong>Budget constraint:</strong> Not enough budget to add players who cover problem days</li>';
+        html += '<li><strong>Position balance:</strong> Can\'t maintain required position distribution (3-5 BC, 3-5 FC)</li>';
+        html += '<li><strong>Limited candidates:</strong> No available players play on your problem days</li>';
         html += '</ul>';
-        html += '<p style="color: #856404; font-weight: bold; margin-bottom: 0;">💡 Suggestions:</p>';
+        html += '<p style="color: #856404; font-weight: bold; margin-bottom: 0;">💡 Try this:</p>';
         html += '<ul style="color: #856404; margin-top: 5px;">';
-        html += '<li>Try increasing your available budget by dropping a higher-salary player</li>';
-        html += '<li>Look for free agents manually who play on your problem days</li>';
-        html += '<li>Consider accepting lower fantasy averages temporarily to fill gaps</li>';
+        html += '<li>Increase available budget to $2-3M</li>';
+        html += '<li>Check the Top Teams tab to see which teams have more games</li>';
+        html += '<li>Manually search for free agents from teams with 4+ game days</li>';
         html += '</ul>';
         html += '</div>';
     } else {

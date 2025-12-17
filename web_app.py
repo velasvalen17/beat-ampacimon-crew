@@ -502,8 +502,8 @@ def analyze_lineup():
             for adds in itertools.combinations(candidates[:100], 2):
                 add_salary = sum(a['salary'] for a in adds)
                 
-                # More flexible budget usage: allow spending 30-100% of available budget
-                if add_salary > budget or add_salary < budget * 0.3:
+                # Hard budget constraint - can't exceed budget
+                if add_salary > budget:
                     continue
                 
                 # Check position balance
@@ -513,22 +513,36 @@ def analyze_lineup():
                 new_bc_count = 5 - drop_bc + add_bc
                 new_fc_count = 5 - drop_fc + add_fc
                 
+                # Position balance is a hard constraint
                 if new_bc_count < 3 or new_bc_count > 5 or new_fc_count < 3 or new_fc_count > 5:
                     continue
+                
+                # Track warnings for suboptimal recommendations
+                warnings = []
                 
                 # Calculate average FP of players being added
                 add_avg_fp = sum(a['fantasy_avg'] for a in adds) / len(adds)
                 
-                # Quality check: New players should have similar or better FP than drops
-                # More lenient when fixing coverage gaps (allow up to 30% drop)
-                fp_threshold = drop_avg_fp * 0.70
-                if add_avg_fp < fp_threshold:
-                    continue
+                # Check quality concerns (don't skip, just warn)
+                fp_threshold_good = drop_avg_fp * 0.85
+                fp_threshold_acceptable = drop_avg_fp * 0.70
                 
-                # Each new player should be at least 50% of roster average (more lenient to find options)
-                # Skip this check if player has no stats yet (fantasy_avg == 0)
-                if any(a['fantasy_avg'] < roster_avg_fp * 0.5 and a['fantasy_avg'] > 0 for a in adds):
-                    continue
+                if add_avg_fp < fp_threshold_acceptable:
+                    fp_loss_pct = ((drop_avg_fp - add_avg_fp) / drop_avg_fp * 100) if drop_avg_fp > 0 else 0
+                    warnings.append(f"⚠️ Significant FP drop: New players avg {add_avg_fp:.1f} FP/G vs drops avg {drop_avg_fp:.1f} FP/G ({fp_loss_pct:.0f}% decrease)")
+                elif add_avg_fp < fp_threshold_good:
+                    warnings.append(f"⚡ Moderate FP impact: New players slightly lower quality ({add_avg_fp:.1f} vs {drop_avg_fp:.1f} FP/G)")
+                
+                # Check if players are below roster average
+                weak_players = [a for a in adds if a['fantasy_avg'] < roster_avg_fp * 0.5 and a['fantasy_avg'] > 0]
+                if weak_players:
+                    player_names = ', '.join([p['name'] for p in weak_players])
+                    warnings.append(f"⚠️ Below roster average: {player_names} significantly below team quality")
+                
+                # Check budget usage
+                budget_usage_pct = (add_salary / budget * 100) if budget > 0 else 0
+                if add_salary < budget * 0.3:
+                    warnings.append(f"💰 Low budget usage: Only using ${add_salary:.1f}M of ${budget:.1f}M available ({budget_usage_pct:.0f}%)")
                 
                 # Calculate comprehensive improvement score
                 # Priorities: Team game days > Games improvement > Fantasy Points > Depth
@@ -587,6 +601,14 @@ def analyze_lineup():
                 budget_usage = add_salary / budget if budget > 0 else 0
                 budget_bonus = budget_usage * 20
                 
+                # Add positive indicators
+                if team_days_improvement > 0:
+                    warnings.append(f"✅ Better schedule: Teams play {add_team_days} vs {drop_team_days} game days")
+                if games_improvement > 0:
+                    warnings.append(f"✅ More games: +{games_improvement} total games in gameweek")
+                if fp_improvement > 0:
+                    warnings.append(f"✅ Better quality: +{fp_improvement:.1f} FP/G improvement")
+                
                 # Combined score: Team days (most important) > Games > FP similarity > FP improvement > Depth
                 score = (team_days_improvement * 200 + team_quality_bonus + 
                         games_improvement * 100 + fp_similarity_bonus + 
@@ -599,12 +621,18 @@ def analyze_lineup():
                     'fp_improvement': fp_improvement,
                     'depth_score': depth_score,
                     'games_improvement': games_improvement,
-                    'score': score
+                    'team_days_improvement': team_days_improvement,
+                    'score': score,
+                    'warnings': warnings
                 })
         
-        # Sort by score and get top 3
+        # Sort by score and always get top 3 (or all if less than 3)
         best_options.sort(key=lambda x: x['score'], reverse=True)
         recommendations = best_options[:3]
+        
+        # If we have fewer than 3 recommendations, add a note
+        if len(recommendations) < 3 and len(recommendations) > 0:
+            pass  # Frontend will handle displaying available recommendations
     
     conn.close()
     
