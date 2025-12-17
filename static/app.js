@@ -719,7 +719,7 @@ async function updateRecommendedScheduleInComparison(analysisData, recIndex = 0)
     }
     
     // Build recommended roster: current roster - drops + adds
-    const dropsIds = new Set(firstRec.drops.map(d => d.player_id));
+    const dropsIds = new Set(selectedRec.drops.map(d => d.player_id));
     const currentPlayerIds = [...currentRoster.backcourt, ...currentRoster.frontcourt]
         .filter(p => p !== null && p !== undefined)
         .map(p => p.player_id);
