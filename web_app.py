@@ -874,7 +874,7 @@ def get_optimal_team(gameweek):
         gameweek_query = """
             SELECT start_date, end_date 
             FROM gameweeks 
-            WHERE gameweek = ?
+            WHERE week_number = ?
         """
         gw_row = conn.execute(gameweek_query, (gameweek,)).fetchone()
         if not gw_row:
@@ -887,13 +887,13 @@ def get_optimal_team(gameweek):
         query = """
             WITH recent_stats AS (
                 SELECT 
-                    pgs.player_id,
-                    pgs.fantasy_points,
-                    pgs.minutes_played,
-                    ROW_NUMBER() OVER (PARTITION BY pgs.player_id ORDER BY g.game_date DESC) as rn
-                FROM player_game_stats pgs
-                JOIN games g ON pgs.game_id = g.game_id
-                WHERE pgs.minutes_played > 0
+                    player_id,
+                    fantasy_points,
+                    minutes_played,
+                    game_date,
+                    ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY game_date DESC) as rn
+                FROM player_game_stats
+                WHERE minutes_played > 0
             ),
             player_averages AS (
                 SELECT 
@@ -921,7 +921,7 @@ def get_optimal_team(gameweek):
                 p.player_name,
                 p.position,
                 p.salary,
-                t.abbreviation as team,
+                t.team_abbreviation as team,
                 pa.avg_fp,
                 pa.avg_minutes,
                 pa.games_played as recent_games,
@@ -939,6 +939,9 @@ def get_optimal_team(gameweek):
         all_candidates = [dict(row) for row in cursor.fetchall()]
         conn.close()
         
+        # Filter out players with null or zero salary
+        all_candidates = [p for p in all_candidates if p.get('salary') and p['salary'] > 0]
+        
         if not all_candidates:
             return jsonify({'error': 'No eligible players found', 'optimal_team': []})
         
@@ -946,38 +949,57 @@ def get_optimal_team(gameweek):
         backcourt = [p for p in all_candidates if 'G' in p['position']]
         frontcourt = [p for p in all_candidates if 'F' in p['position'] or 'C' in p['position']]
         
-        # Greedy optimization: Select top performers within budget
+        # Smart optimization: Use a mixed strategy
+        # 1. Take top 2 from each position (best performers)
+        # 2. Fill remaining slots with best value players that fit budget
         budget = 100.0
         selected_backcourt = []
         selected_frontcourt = []
         
-        # Select 5 backcourt players
-        for player in backcourt:
-            if len(selected_backcourt) >= 5:
+        # Step 1: Take top 2 performers from each position group
+        for i in range(min(2, len(backcourt))):
+            selected_backcourt.append(backcourt[i])
+        for i in range(min(2, len(frontcourt))):
+            selected_frontcourt.append(frontcourt[i])
+        
+        # Step 2: Fill remaining slots, prioritizing by value (FP per $ spent)
+        remaining_bc = backcourt[len(selected_backcourt):]
+        remaining_fc = frontcourt[len(selected_frontcourt):]
+        
+        # Calculate value ratio for remaining players
+        for p in remaining_bc:
+            p['value_ratio'] = p['projected_total_fp'] / p['salary'] if p['salary'] > 0 else 0
+        for p in remaining_fc:
+            p['value_ratio'] = p['projected_total_fp'] / p['salary'] if p['salary'] > 0 else 0
+        
+        # Sort by value ratio
+        remaining_bc.sort(key=lambda x: x['value_ratio'], reverse=True)
+        remaining_fc.sort(key=lambda x: x['value_ratio'], reverse=True)
+        
+        # Fill remaining slots
+        bc_idx = fc_idx = 0
+        while len(selected_backcourt) < 5 or len(selected_frontcourt) < 5:
+            current_total = sum(p['salary'] for p in selected_backcourt + selected_frontcourt)
+            added_any = False
+            
+            # Try to add BC if needed
+            if len(selected_backcourt) < 5 and bc_idx < len(remaining_bc):
+                if current_total + remaining_bc[bc_idx]['salary'] <= budget:
+                    selected_backcourt.append(remaining_bc[bc_idx])
+                    added_any = True
+                bc_idx += 1
+            
+            # Try to add FC if needed
+            if len(selected_frontcourt) < 5 and fc_idx < len(remaining_fc):
+                current_total = sum(p['salary'] for p in selected_backcourt + selected_frontcourt)
+                if current_total + remaining_fc[fc_idx]['salary'] <= budget:
+                    selected_frontcourt.append(remaining_fc[fc_idx])
+                    added_any = True
+                fc_idx += 1
+            
+            # Break if we can't add any more players
+            if not added_any and bc_idx >= len(remaining_bc) and fc_idx >= len(remaining_fc):
                 break
-            if sum(p['salary'] for p in selected_backcourt) + player['salary'] <= budget * 0.5:
-                selected_backcourt.append(player)
-        
-        # If we couldn't get 5 with half budget, try with full budget
-        if len(selected_backcourt) < 5:
-            selected_backcourt = []
-            for player in backcourt:
-                if len(selected_backcourt) >= 5:
-                    break
-                remaining_budget = budget - sum(p['salary'] for p in selected_backcourt)
-                if player['salary'] <= remaining_budget:
-                    selected_backcourt.append(player)
-        
-        # Calculate remaining budget for frontcourt
-        used_budget = sum(p['salary'] for p in selected_backcourt)
-        remaining_budget = budget - used_budget
-        
-        # Select 5 frontcourt players
-        for player in frontcourt:
-            if len(selected_frontcourt) >= 5:
-                break
-            if sum(p['salary'] for p in selected_frontcourt) + player['salary'] <= remaining_budget:
-                selected_frontcourt.append(player)
         
         optimal_team = selected_backcourt + selected_frontcourt
         total_salary = sum(p['salary'] for p in optimal_team)
