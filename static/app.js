@@ -544,7 +544,28 @@ function displayGameSchedule(data, selectedPlayers) {
     }
     
     // Calculate player counts per fantasy gameday
-    const sortedDays = Object.keys(data.games_by_day).sort();
+    // Sort fantasy gamedays: GW format first, then dates
+    const sortedDays = Object.keys(data.games_by_day).sort((a, b) => {
+        // Extract gameweek and day numbers if in GW format
+        const gwRegex = /GW(\d+) Day (\d+)/;
+        const matchA = a.match(gwRegex);
+        const matchB = b.match(gwRegex);
+        
+        if (matchA && matchB) {
+            // Both are GW format, compare by week then day
+            const gwA = parseInt(matchA[1]);
+            const gwB = parseInt(matchB[1]);
+            if (gwA !== gwB) return gwA - gwB;
+            return parseInt(matchA[2]) - parseInt(matchB[2]);
+        } else if (matchA) {
+            return -1;  // GW format comes first
+        } else if (matchB) {
+            return 1;
+        } else {
+            // Both are dates, sort chronologically
+            return a.localeCompare(b);
+        }
+    });
     const dayPlayerCounts = {};
     const dayPlayerDetails = {};
     
@@ -576,7 +597,10 @@ function displayGameSchedule(data, selectedPlayers) {
     });
     
     // Summary stats
-    const totalGames = Object.values(data.games_by_day).reduce((sum, games) => sum + games.length, 0);
+    const totalGames = Object.values(data.games_by_day).reduce((sum, dayData) => {
+        const games = dayData.games || dayData;  // Handle both formats
+        return sum + (Array.isArray(games) ? games.length : 0);
+    }, 0);
     const daysWithEnoughPlayers = Object.values(dayPlayerCounts).filter(count => count >= 5).length;
     const daysWithIssues = sortedDays.length - daysWithEnoughPlayers;
     
