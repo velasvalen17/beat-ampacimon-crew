@@ -407,21 +407,22 @@ def get_player_schedule(player_id):
 @app.route('/api/game_schedule', methods=['POST'])
 def get_game_schedule():
     """Get game schedule for selected players in a gameweek"""
-    data = request.json
-    player_ids = data.get('player_ids', [])
-    gameweek = int(data.get('gameweek', 9))
-    
-    if not player_ids:
-        return jsonify({'games_by_day': {}})
-    
-    # Calculate date range for gameweek
-    madrid_tz = ZoneInfo('Europe/Madrid')
-    season_start = datetime(2025, 10, 21, tzinfo=madrid_tz)
-    week_start = season_start + timedelta(days=(gameweek - 1) * 7)
-    week_end = week_start + timedelta(days=6)
-    
-    conn = get_db_connection()
-    cur = conn.cursor()
+    try:
+        data = request.json
+        player_ids = data.get('player_ids', [])
+        gameweek = int(data.get('gameweek', 9))
+        
+        if not player_ids:
+            return jsonify({'games_by_day': {}})
+        
+        # Calculate date range for gameweek
+        madrid_tz = ZoneInfo('Europe/Madrid')
+        season_start = datetime(2025, 10, 21, tzinfo=madrid_tz)
+        week_start = season_start + timedelta(days=(gameweek - 1) * 7)
+        week_end = week_start + timedelta(days=6)
+        
+        conn = get_db_connection()
+        cur = conn.cursor()
     
     # Get teams for the selected players
     placeholders = ','.join('?' * len(player_ids))
@@ -497,7 +498,13 @@ def get_game_schedule():
                 'players': game_players
             })
     
-    return jsonify({'games_by_day': games_by_day})
+        return jsonify({'games_by_day': games_by_day})
+    
+    except Exception as e:
+        print(f"Error in get_game_schedule: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e), 'games_by_day': {}}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
