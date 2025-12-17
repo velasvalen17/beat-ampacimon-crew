@@ -611,7 +611,7 @@ function displayGameSchedule(data, selectedPlayers) {
     
     sortedDays.forEach(day => {
         const dayDate = new Date(day + 'T00:00:00');
-        const dayName = dayDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        const dayName = dayDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
         const playerCount = dayPlayerCounts[day];
         const bcCount = dayPlayerDetails[day].backcourt.length;
         const fcCount = dayPlayerDetails[day].frontcourt.length;
@@ -619,40 +619,35 @@ function displayGameSchedule(data, selectedPlayers) {
         const statusClass = isReady ? 'status-ready' : 'status-warning';
         const statusIcon = isReady ? '✓' : '⚠';
         
+        // Build player list for this day
+        let playerList = [];
+        if (dayPlayerDetails[day].backcourt.length > 0) {
+            playerList.push(...dayPlayerDetails[day].backcourt.map(p => 
+                `<span class="player-chip bc">${p.player_name}</span>`
+            ));
+        }
+        if (dayPlayerDetails[day].frontcourt.length > 0) {
+            playerList.push(...dayPlayerDetails[day].frontcourt.map(p => 
+                `<span class="player-chip fc">${p.player_name}</span>`
+            ));
+        }
+        
         html += `
-            <tr class="schedule-day-row ${statusClass}" onclick="toggleDayDetails('${day}')">
-                <td class="day-name"><strong>${dayName}</strong></td>
+            <tr class="schedule-day-row ${statusClass}">
+                <td class="day-name">
+                    <strong>${dayName}</strong>
+                </td>
                 <td class="player-count ${playerCount < 5 ? 'count-warning' : 'count-ok'}">${playerCount}</td>
                 <td class="position-count">${bcCount}</td>
                 <td class="position-count">${fcCount}</td>
                 <td class="day-status">
-                    <span class="status-badge ${statusClass}">${statusIcon} ${isReady ? 'Ready' : `Need ${5 - playerCount} more`}</span>
+                    <span class="status-badge ${statusClass}">${statusIcon} ${isReady ? 'Ready' : `Need ${5 - playerCount}`}</span>
                 </td>
             </tr>
-            <tr class="day-details" id="details-${day}" style="display: none;">
+            <tr class="day-players-row">
                 <td colspan="5">
-                    <div class="day-details-content">
-        `;
-        
-        // Show backcourt players
-        if (dayPlayerDetails[day].backcourt.length > 0) {
-            html += '<div class="position-section"><strong>Backcourt:</strong> ';
-            html += dayPlayerDetails[day].backcourt.map(p => 
-                `<span class="player-chip">${p.player_name} (${p.team}) vs ${p.matchup}</span>`
-            ).join(' ');
-            html += '</div>';
-        }
-        
-        // Show frontcourt players
-        if (dayPlayerDetails[day].frontcourt.length > 0) {
-            html += '<div class="position-section"><strong>Frontcourt:</strong> ';
-            html += dayPlayerDetails[day].frontcourt.map(p => 
-                `<span class="player-chip">${p.player_name} (${p.team}) vs ${p.matchup}</span>`
-            ).join(' ');
-            html += '</div>';
-        }
-        
-        html += `
+                    <div class="day-players-content">
+                        ${playerList.length > 0 ? playerList.join(' ') : '<span class="no-players">No players scheduled</span>'}
                     </div>
                 </td>
             </tr>
@@ -666,14 +661,4 @@ function displayGameSchedule(data, selectedPlayers) {
     `;
     
     scheduleContent.innerHTML = html;
-}
-
-// Toggle day details
-function toggleDayDetails(day) {
-    const detailsRow = document.getElementById(`details-${day}`);
-    if (detailsRow.style.display === 'none') {
-        detailsRow.style.display = 'table-row';
-    } else {
-        detailsRow.style.display = 'none';
-    }
 }

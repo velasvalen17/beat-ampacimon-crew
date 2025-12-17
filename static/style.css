@@ -627,13 +627,8 @@ header .tagline {
 }
 
 .schedule-table tbody tr.schedule-day-row {
-    border-bottom: 1px solid #e0e0e0;
-    cursor: pointer;
+    border-bottom: none;
     transition: background-color 0.2s;
-}
-
-.schedule-table tbody tr.schedule-day-row:hover {
-    background-color: #f8f9fa;
 }
 
 .schedule-table tbody tr.schedule-day-row.status-ready {
@@ -642,6 +637,10 @@ header .tagline {
 
 .schedule-table tbody tr.schedule-day-row.status-warning {
     background-color: #fff8f0;
+}
+
+.schedule-table tbody tr.day-players-row {
+    border-bottom: 2px solid #e0e0e0;
 }
 
 .schedule-table td {
@@ -690,35 +689,43 @@ header .tagline {
     color: #92400e;
 }
 
-.day-details {
+.day-players-row {
     background-color: #f9fafb;
 }
 
-.day-details-content {
-    padding: 15px 20px;
-}
-
-.position-section {
-    margin-bottom: 10px;
-    line-height: 1.8;
-}
-
-.position-section strong {
-    color: #0a2540;
-    display: block;
-    margin-bottom: 8px;
+.day-players-content {
+    padding: 12px 15px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
 }
 
 .player-chip {
     display: inline-block;
     background: white;
-    border: 1px solid #e0e0e0;
-    padding: 4px 10px;
+    border: 2px solid #e0e0e0;
+    padding: 6px 12px;
     border-radius: 6px;
-    margin-right: 8px;
-    margin-bottom: 6px;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     color: #374151;
+    font-weight: 500;
+}
+
+.player-chip.bc {
+    border-color: #3b82f6;
+    background-color: #eff6ff;
+    color: #1e40af;
+}
+
+.player-chip.fc {
+    border-color: #10b981;
+    background-color: #ecfdf5;
+    color: #065f46;
+}
+
+.no-players {
+    color: #9ca3af;
+    font-style: italic;
 }
 
 .stat-ok {

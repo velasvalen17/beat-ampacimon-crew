@@ -475,7 +475,9 @@ def get_game_schedule():
         players_dict = {row['player_id']: dict(row) for row in cur.fetchall()}
         conn.close()
         
-        # Organize games by day with players
+        # Organize games by fantasy gameday (considering Madrid timezone)
+        # NBA games typically span multiple days due to timezone differences
+        # We group by calendar date but track all player details
         games_by_day = {}
         for game in games:
             game_date = game['game_date']
