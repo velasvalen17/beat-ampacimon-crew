@@ -91,18 +91,17 @@ def get_players():
     conn = get_db_connection()
     cur = conn.cursor()
     
-    # Get players with recent fantasy stats (last 30 days or any available data)
+    # Get players with fantasy averages calculated from all their game stats
     cur.execute("""
-        WITH recent_stats AS (
+        WITH player_fantasy_stats AS (
             SELECT 
                 pgs.player_id,
+                COUNT(*) as games_played,
                 AVG(pgs.points + 1.2 * pgs.rebounds + 1.5 * pgs.assists + 
                     3 * pgs.steals + 3 * pgs.blocks - pgs.turnovers) as fantasy_avg
             FROM player_game_stats pgs
-            JOIN games g ON pgs.game_id = g.game_id
-            WHERE g.game_date >= '2025-11-01'
             GROUP BY pgs.player_id
-            HAVING COUNT(*) >= 2
+            HAVING COUNT(*) >= 1
         )
         SELECT 
             p.player_id,
@@ -110,10 +109,11 @@ def get_players():
             p.position,
             p.salary,
             t.team_abbreviation as team,
-            COALESCE(rs.fantasy_avg, 0) as fantasy_avg
+            COALESCE(pfs.fantasy_avg, 0) as fantasy_avg,
+            COALESCE(pfs.games_played, 0) as games_played
         FROM players p
         JOIN teams t ON p.team_id = t.team_id
-        LEFT JOIN recent_stats rs ON p.player_id = rs.player_id
+        LEFT JOIN player_fantasy_stats pfs ON p.player_id = pfs.player_id
         WHERE p.salary IS NOT NULL
         ORDER BY p.salary DESC
     """)
