@@ -466,10 +466,10 @@ def get_game_schedule():
         
         # Get player info
         cur.execute(f"""
-            SELECT player_id, player_name, team_id, t.team_abbreviation as team
+            SELECT p.player_id, p.player_name, p.team_id, t.team_abbreviation as team
             FROM players p
             JOIN teams t ON p.team_id = t.team_id
-            WHERE player_id IN ({placeholders})
+            WHERE p.player_id IN ({placeholders})
         """, player_ids)
         
         players_dict = {row['player_id']: dict(row) for row in cur.fetchall()}
