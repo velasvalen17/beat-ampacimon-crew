@@ -1,8 +1,8 @@
 // Global state
 let allPlayers = [];
 let currentRoster = {
-    backcourt: [],
-    frontcourt: []
+    backcourt: [null, null, null, null, null],
+    frontcourt: [null, null, null, null, null]
 };
 let currentSlot = null;
 
@@ -239,6 +239,7 @@ function removePlayer(position, index) {
     
     slot.addEventListener('click', () => openPlayerModal(position, index));
     updateBudgetSummary();
+    updateGameSchedule();
     
     // Save roster to localStorage
     saveRoster();
@@ -386,8 +387,8 @@ function displayAnalysis(data) {
 // Save roster to localStorage
 function saveRoster() {
     const rosterData = {
-        backcourt: currentRoster.backcourt.filter(p => p !== null && p !== undefined),
-        frontcourt: currentRoster.frontcourt.filter(p => p !== null && p !== undefined)
+        backcourt: currentRoster.backcourt.map(p => p ? { player_id: p.player_id, player_name: p.player_name, position: p.position, salary: p.salary, team: p.team } : null),
+        frontcourt: currentRoster.frontcourt.map(p => p ? { player_id: p.player_id, player_name: p.player_name, position: p.position, salary: p.salary, team: p.team } : null)
     };
     localStorage.setItem('nba_fantasy_roster', JSON.stringify(rosterData));
 }
@@ -410,11 +411,13 @@ async function loadSavedRoster() {
         // Restore backcourt
         if (rosterData.backcourt) {
             rosterData.backcourt.forEach((playerData, index) => {
-                // Find the full player object from allPlayers
-                const player = allPlayers.find(p => p.player_id === playerData.player_id);
-                if (player && index < 5) {
-                    currentRoster.backcourt[index] = player;
-                    updatePlayerSlot('backcourt', index, player);
+                if (playerData && index < 5) {
+                    // Find the full player object from allPlayers
+                    const player = allPlayers.find(p => p.player_id === playerData.player_id);
+                    if (player) {
+                        currentRoster.backcourt[index] = player;
+                        updatePlayerSlot('backcourt', index, player);
+                    }
                 }
             });
         }
@@ -422,15 +425,18 @@ async function loadSavedRoster() {
         // Restore frontcourt
         if (rosterData.frontcourt) {
             rosterData.frontcourt.forEach((playerData, index) => {
-                const player = allPlayers.find(p => p.player_id === playerData.player_id);
-                if (player && index < 5) {
-                    currentRoster.frontcourt[index] = player;
-                    updatePlayerSlot('frontcourt', index, player);
+                if (playerData && index < 5) {
+                    const player = allPlayers.find(p => p.player_id === playerData.player_id);
+                    if (player) {
+                        currentRoster.frontcourt[index] = player;
+                        updatePlayerSlot('frontcourt', index, player);
+                    }
                 }
             });
         }
         
         updateBudgetSummary();
+        updateGameSchedule();
         console.log('Loaded saved roster from localStorage');
     } catch (error) {
         console.error('Error loading saved roster:', error);
