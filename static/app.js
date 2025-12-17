@@ -455,6 +455,11 @@ async function updateRecommendedScheduleInComparison(analysisData) {
     const recommendedScheduleDiv = document.getElementById('recommended-schedule');
     const firstRec = analysisData.recommendations[0];
     
+    if (!firstRec) {
+        recommendedScheduleDiv.innerHTML = '<p class="schedule-placeholder">No recommendations available</p>';
+        return;
+    }
+    
     // Build recommended roster: current roster - drops + adds
     const dropsIds = new Set(firstRec.drops.map(d => d.player_id));
     const currentPlayerIds = [...currentRoster.backcourt, ...currentRoster.frontcourt]
@@ -466,6 +471,10 @@ async function updateRecommendedScheduleInComparison(analysisData) {
     
     // Add the new players
     const recommendedIds = [...remainingIds, ...firstRec.adds.map(a => a.player_id)];
+    
+    console.log('Current roster IDs:', currentPlayerIds);
+    console.log('Drops:', dropsIds);
+    console.log('Recommended roster IDs:', recommendedIds);
     
     const selectedGameweek = parseInt(document.getElementById('gameweek-selector').value) || 9;
     
@@ -504,7 +513,7 @@ async function updateRecommendedScheduleInComparison(analysisData) {
             });
         });
         
-        recommendedScheduleDiv.innerHTML = buildScheduleHTML(data, recommendedPlayers);
+        recommendedScheduleDiv.innerHTML = buildScheduleHTML(data, recommendedPlayers, firstRec);
     } catch (error) {
         console.error('Error loading recommended schedule:', error);
         recommendedScheduleDiv.innerHTML = '<p class="error">Failed to load schedule</p>';
@@ -512,10 +521,12 @@ async function updateRecommendedScheduleInComparison(analysisData) {
 }
 
 // Build schedule HTML (reusable for both views)
-function buildScheduleHTML(data, playersList) {
+function buildScheduleHTML(data, playersList, recommendation = null) {
     if (!data.games_by_day || Object.keys(data.games_by_day).length === 0) {
         return '<p class="schedule-placeholder">No games found for this gameweek</p>';
     }
+    
+    console.log('Building schedule for', playersList.length, 'players');
     
     // Count players per day
     const dayPlayerCounts = {};
@@ -549,7 +560,18 @@ function buildScheduleHTML(data, playersList) {
         return sum + (Array.isArray(games) ? games.length : 0);
     }, 0);
     
-    let html = `
+    let html = '';
+    
+    // Show transaction summary if this is a recommended roster
+    if (recommendation) {
+        html += '<div style="background: #f0f9ff; padding: 12px; border-radius: 6px; margin-bottom: 15px; border-left: 3px solid #3b82f6;">';
+        html += '<p style="margin: 0 0 8px 0; font-weight: bold; color: #1e40af;">Changes:</p>';
+        html += '<p style="margin: 0; font-size: 0.9rem;">🔴 <strong>OUT:</strong> ' + recommendation.drops.map(d => d.name).join(', ') + '</p>';
+        html += '<p style="margin: 5px 0 0 0; font-size: 0.9rem;">🟢 <strong>IN:</strong> ' + recommendation.adds.map(a => a.name).join(', ') + '</p>';
+        html += '</div>';
+    }
+    
+    html += `
         <div class="schedule-summary">
             <div class="summary-stat">
                 <div class="stat-value">${playersList.length}</div>
@@ -559,7 +581,7 @@ function buildScheduleHTML(data, playersList) {
                 <div class="stat-value">${totalGames}</div>
                 <div class="stat-label">Total Games</div>
             </div>
-        </div>
+        </div>`;
         
         <div class="schedule-table-container">
             <table class="schedule-table">
