@@ -403,6 +403,24 @@ function displayAnalysis(data) {
             
             html += '</div>';
         });
+    } else if (data.insufficient_days && data.insufficient_days.length > 0) {
+        // There are gaps but no good recommendations found
+        html += '<div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin-top: 20px; border-left: 4px solid #ffc107;">';
+        html += '<h4 style="color: #856404; margin-top: 0;">⚠️ Limited Transaction Options</h4>';
+        html += '<p style="color: #856404; margin-bottom: 10px;">Your roster has gaps in coverage, but no ideal transactions were found that meet all criteria:</p>';
+        html += '<ul style="color: #856404; margin: 10px 0;">';
+        html += '<li>Players must improve games played on problem days</li>';
+        html += '<li>New players should have similar or better fantasy averages</li>';
+        html += '<li>Transactions must fit within your budget</li>';
+        html += '<li>Must maintain position balance (3-5 backcourt, 3-5 frontcourt)</li>';
+        html += '</ul>';
+        html += '<p style="color: #856404; font-weight: bold; margin-bottom: 0;">💡 Suggestions:</p>';
+        html += '<ul style="color: #856404; margin-top: 5px;">';
+        html += '<li>Try increasing your available budget by dropping a higher-salary player</li>';
+        html += '<li>Look for free agents manually who play on your problem days</li>';
+        html += '<li>Consider accepting lower fantasy averages temporarily to fill gaps</li>';
+        html += '</ul>';
+        html += '</div>';
     } else {
         html += '<div style="background: #d4edda; padding: 15px; border-radius: 8px; margin-top: 20px;">';
         html += '<p style="color: #155724;"><strong>✓ Your roster looks good!</strong> All days have sufficient player coverage.</p>';

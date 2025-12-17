@@ -353,7 +353,7 @@ def analyze_lineup():
             FROM player_games pg
             LEFT JOIN recent_stats rs ON pg.player_id = rs.player_id
             ORDER BY rs.fantasy_avg DESC NULLS LAST, pg.total_games DESC
-            LIMIT 100
+            LIMIT 200
         """, current_roster + [start_date, end_date] + problem_dates)
         
         candidates = [dict(row) for row in cur.fetchall()]
@@ -406,11 +406,11 @@ def analyze_lineup():
             # Calculate average FP of players being dropped
             drop_avg_fp = sum(d['fantasy_avg'] for d in drops) / len(drops)
             
-            for adds in itertools.combinations(candidates[:50], 2):
+            for adds in itertools.combinations(candidates[:100], 2):
                 add_salary = sum(a['salary'] for a in adds)
                 
-                # More flexible budget usage: allow spending up to 95% of available budget
-                if add_salary > budget or add_salary < budget * 0.5:
+                # More flexible budget usage: allow spending 30-100% of available budget
+                if add_salary > budget or add_salary < budget * 0.3:
                     continue
                 
                 # Check position balance
@@ -427,13 +427,14 @@ def analyze_lineup():
                 add_avg_fp = sum(a['fantasy_avg'] for a in adds) / len(adds)
                 
                 # Quality check: New players should have similar or better FP than drops
-                # Allow up to 15% drop in FP only if they significantly improve depth
-                fp_threshold = drop_avg_fp * 0.85
+                # More lenient when fixing coverage gaps (allow up to 30% drop)
+                fp_threshold = drop_avg_fp * 0.70
                 if add_avg_fp < fp_threshold:
                     continue
                 
-                # Each new player should be at least 70% of roster average (avoid very weak players)
-                if any(a['fantasy_avg'] < roster_avg_fp * 0.7 and a['fantasy_avg'] > 0 for a in adds):
+                # Each new player should be at least 50% of roster average (more lenient to find options)
+                # Skip this check if player has no stats yet (fantasy_avg == 0)
+                if any(a['fantasy_avg'] < roster_avg_fp * 0.5 and a['fantasy_avg'] > 0 for a in adds):
                     continue
                 
                 # Calculate comprehensive improvement score
