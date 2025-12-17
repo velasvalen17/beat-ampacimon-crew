@@ -285,11 +285,12 @@ class DatabasePopulator:
             from_date = DatabasePopulator.get_last_update_date()
         
         if to_date is None:
-            to_date = datetime.now()
+            to_date = datetime.now().date()
         
         # Only fetch up to today, not future dates
-        if to_date > datetime.now():
-            to_date = datetime.now()
+        today = datetime.now().date()
+        if to_date > today:
+            to_date = today
         
         print(f"Populating player game statistics from {from_date.strftime('%Y-%m-%d')} to {to_date.strftime('%Y-%m-%d')}...")
         print("This may take a while as we fetch game logs for all players...")
