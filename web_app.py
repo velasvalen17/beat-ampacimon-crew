@@ -945,9 +945,28 @@ def get_optimal_team(gameweek):
         if not all_candidates:
             return jsonify({'error': 'No eligible players found', 'optimal_team': []})
         
-        # Separate by position
-        backcourt = [p for p in all_candidates if 'G' in p['position']]
-        frontcourt = [p for p in all_candidates if 'F' in p['position'] or 'C' in p['position']]
+        # Separate by position (prioritize primary position to avoid duplicates)
+        # Players with dual positions (G-F, F-G, C-F) go to their first listed position
+        backcourt = []
+        frontcourt = []
+        
+        for p in all_candidates:
+            pos = p['position']
+            # Check first character of position to determine primary
+            if pos.startswith('G'):
+                backcourt.append(p)
+            elif pos.startswith('F') or pos.startswith('C'):
+                frontcourt.append(p)
+            elif 'G' in pos and ('F' in pos or 'C' in pos):
+                # Dual position player - prefer backcourt if G comes first, otherwise frontcourt
+                if pos.index('G') < pos.index('F' if 'F' in pos else 'C'):
+                    backcourt.append(p)
+                else:
+                    frontcourt.append(p)
+            elif 'G' in pos:
+                backcourt.append(p)
+            else:
+                frontcourt.append(p)
         
         # Smart optimization: Use a mixed strategy
         # 1. Take top 2 from each position (best performers)
