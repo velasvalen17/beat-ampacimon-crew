@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  nba-fantasy:
+    build: .
+    container_name: beat-ampacimon-crew
+    ports:
+      - "5000:5000"  # Expose web application
+    volumes:
+      # Persist the database - using named volumes for Portainer
+      - nba-fantasy-data:/app/data
+      # Persist logs
+      - nba-fantasy-logs:/var/log/nba-fantasy
+    environment:
+      - TZ=Europe/Madrid  # Adjust to your timezone
+      - SEASON_YEAR=2025-26
+      - DB_PATH=/app/data/nba_fantasy.db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  nba-fantasy-data:
+    driver: local
+  nba-fantasy-logs:
+    driver: local
