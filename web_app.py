@@ -422,12 +422,27 @@ def analyze_lineup():
                     pgs.player_id,
                     AVG(pgs.points + pgs.rebounds + 2 * pgs.assists + 
                         3 * pgs.blocks + 3 * pgs.steals) as fantasy_avg,
+                    AVG(pgs.minutes_played) as avg_minutes,
                     COUNT(*) as games_played
-                FROM player_game_stats pgs
-                JOIN games g ON pgs.game_id = g.game_id
-                WHERE g.game_date >= '2025-12-09' AND g.game_date <= '2025-12-15'
+                FROM (
+                    SELECT 
+                        pgs2.player_id,
+                        pgs2.points,
+                        pgs2.rebounds,
+                        pgs2.assists,
+                        pgs2.blocks,
+                        pgs2.steals,
+                        pgs2.minutes_played,
+                        pgs2.game_date,
+                        ROW_NUMBER() OVER (PARTITION BY pgs2.player_id ORDER BY pgs2.game_date DESC) as rn
+                    FROM player_game_stats pgs2
+                ) pgs
+                WHERE pgs.rn <= 5
                 GROUP BY pgs.player_id
-                HAVING games_played >= 2
+                HAVING games_played >= 3 
+                    AND AVG(pgs.minutes_played) >= 18 
+                    AND AVG(pgs.points + pgs.rebounds + 2 * pgs.assists + 
+                        3 * pgs.blocks + 3 * pgs.steals) > 0
             )
             SELECT 
                 pg.player_id,
@@ -438,10 +453,11 @@ def analyze_lineup():
                 pg.team,
                 pg.game_dates,
                 pg.total_games,
-                COALESCE(rs.fantasy_avg, 0) as fantasy_avg
+                COALESCE(rs.fantasy_avg, 0) as fantasy_avg,
+                COALESCE(rs.avg_minutes, 0) as avg_minutes
             FROM player_games pg
-            LEFT JOIN recent_stats rs ON pg.player_id = rs.player_id
-            ORDER BY rs.fantasy_avg DESC NULLS LAST, pg.total_games DESC
+            INNER JOIN recent_stats rs ON pg.player_id = rs.player_id
+            ORDER BY rs.fantasy_avg DESC, pg.total_games DESC
             LIMIT 200
         """, current_roster + [start_date, end_date] + problem_dates)
         
@@ -616,7 +632,7 @@ def analyze_lineup():
                 
                 best_options.append({
                     'drops': [{'player_id': d['player_id'], 'name': d['player_name'], 'salary': d['salary'], 'position': d['position'], 'fantasy_avg': d['fantasy_avg'], 'team': d.get('team', ''), 'team_game_days': team_game_days.get(d['team_id'], 0)} for d in drops],
-                    'adds': [{'player_id': a['player_id'], 'name': a['player_name'], 'salary': a['salary'], 'position': a['position'], 'games': len(a['game_dates'].split(',')), 'fantasy_avg': a['fantasy_avg'], 'team': a.get('team', ''), 'team_game_days': a['team_game_days']} for a in adds],
+                    'adds': [{'player_id': a['player_id'], 'name': a['player_name'], 'salary': a['salary'], 'position': a['position'], 'games': len(a['game_dates'].split(',')), 'fantasy_avg': a['fantasy_avg'], 'avg_minutes': a.get('avg_minutes', 0), 'team': a.get('team', ''), 'team_game_days': a['team_game_days']} for a in adds],
                     'cost': add_salary - drop_salary,
                     'fp_improvement': fp_improvement,
                     'depth_score': depth_score,

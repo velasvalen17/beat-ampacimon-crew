@@ -376,9 +376,10 @@ function displayAnalysis(data) {
             html += '<div class="transaction"><strong class="add">ADD:</strong><ul>';
             rec.adds.forEach(add => {
                 const fpStr = add.fantasy_avg > 0 ? `, ${add.fantasy_avg.toFixed(1)} FP/G` : '';
+                const minStr = add.avg_minutes > 0 ? `, ${add.avg_minutes.toFixed(1)} min/g` : '';
                 const teamDaysStr = add.team_game_days ? ` - ${add.team} plays ${add.team_game_days} days` : '';
                 const teamDaysEmoji = add.team_game_days >= 4 ? ' 🔥' : (add.team_game_days >= 3 ? ' ✨' : '');
-                html += `<li>${add.name} (${add.position}, $${add.salary}M, ${add.games} games${fpStr}${teamDaysStr}${teamDaysEmoji})</li>`;
+                html += `<li>${add.name} (${add.position}, $${add.salary}M, ${add.games} games${fpStr}${minStr}${teamDaysStr}${teamDaysEmoji})</li>`;
             });
             html += '</ul></div>';
             
