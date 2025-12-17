@@ -542,8 +542,16 @@ def get_game_schedule():
         all_gamedays = get_fantasy_gamedays()
         gameweek_gamedays = [(gw, day, deadline) for gw, day, deadline in all_gamedays if gw == gameweek]
         
-        # Organize games by fantasy gameday
+        # Initialize all gamedays for this gameweek (even if no games)
         games_by_day = {}
+        for gw, day_num, deadline in gameweek_gamedays:
+            label = f"GW{gw} Day {day_num}"
+            games_by_day[label] = {
+                'deadline': deadline.isoformat(),
+                'games': []
+            }
+        
+        # Organize games by fantasy gameday
         madrid_tz = ZoneInfo('Europe/Madrid')
         
         for game in games:
@@ -581,6 +589,7 @@ def get_game_schedule():
             if not fantasy_gameday_label:
                 fantasy_gameday_label = game_date_str
             
+            # Create the gameday entry if it doesn't exist (for games outside gameweek)
             if fantasy_gameday_label not in games_by_day:
                 games_by_day[fantasy_gameday_label] = {
                     'deadline': None,
