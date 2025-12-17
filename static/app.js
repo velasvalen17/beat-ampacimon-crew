@@ -135,15 +135,16 @@ function setupEventListeners() {
     
     // Gameweek selector
     document.getElementById('gameweek-selector').addEventListener('change', () => {
-        // Clear previous analysis when gameweek changes
-        const analysisContent = document.getElementById('analysis-content');
-        analysisContent.innerHTML = '<p class="analysis-placeholder">👈 Click "Analysis & Recommendations" tab to see updated recommendations</p>';
         // Update schedule if roster is selected
         updateGameSchedule();
         // Update team schedule if on teams tab
         const activeTab = document.querySelector('.tab-btn.active');
         if (activeTab && activeTab.dataset.tab === 'teams') {
             loadTeamSchedule();
+        }
+        // Auto-reload analysis if on analysis tab
+        if (activeTab && activeTab.dataset.tab === 'analysis') {
+            analyzeRoster();
         }
     });
 }
@@ -615,7 +616,17 @@ async function populateComparisonView(analysisData) {
         analysisData.recommendations.forEach((rec, index) => {
             const option = document.createElement('option');
             option.value = index;
-            option.textContent = `Option ${index + 1}`;
+            
+            // Determine warning icon
+            let warningIcon = '✅';
+            if (rec.warnings && rec.warnings.length > 0) {
+                const hasWarning = rec.warnings.some(w => w.type === 'warning');
+                const hasInfo = rec.warnings.some(w => w.type === 'info');
+                if (hasWarning) warningIcon = '⚠️';
+                else if (hasInfo) warningIcon = 'ℹ️';
+            }
+            
+            option.textContent = `${index + 1}. ${rec.player.name} (${rec.player.team}) ${warningIcon}`;
             if (index === 0) option.selected = true;
             selector.appendChild(option);
         });
