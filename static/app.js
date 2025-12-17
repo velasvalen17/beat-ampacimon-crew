@@ -36,13 +36,21 @@ async function loadGameweeks() {
         const selector = document.getElementById('gameweek-selector');
         selector.innerHTML = '';
         
+        // Find the current or most recent active gameweek
+        let defaultGameweek = gameweeks.find(gw => gw.status === 'active') || 
+                             gameweeks.find(gw => gw.status === 'upcoming') ||
+                             gameweeks[gameweeks.length - 1];
+        
         gameweeks.forEach(gw => {
             const option = document.createElement('option');
             option.value = gw.gameweek;
             option.textContent = gw.label;
-            if (gw.gameweek === 9) {  // Default to gameweek 9
+            
+            // Select the current/active gameweek by default
+            if (defaultGameweek && gw.gameweek === defaultGameweek.gameweek) {
                 option.selected = true;
             }
+            
             selector.appendChild(option);
         });
     } catch (error) {

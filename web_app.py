@@ -112,14 +112,30 @@ def get_gameweeks():
     gameweeks = []
     current_date = season_start
     gameweek_num = 1
+    now = datetime.now(madrid_tz)
     
     while current_date <= max_date:
         week_end = current_date + timedelta(days=6)
+        
+        # Determine if gameweek is completed, active, or upcoming
+        status = "upcoming"
+        if now > week_end:
+            status = "completed"
+        elif now >= current_date:
+            status = "active"
+        
+        status_label = ""
+        if status == "completed":
+            status_label = " ✓"
+        elif status == "active":
+            status_label = " (Current)"
+        
         gameweeks.append({
             'gameweek': gameweek_num,
             'start_date': current_date.strftime('%Y-%m-%d'),
             'end_date': week_end.strftime('%Y-%m-%d'),
-            'label': f"Gameweek {gameweek_num} ({current_date.strftime('%b %d')} - {week_end.strftime('%b %d')})"
+            'status': status,
+            'label': f"Gameweek {gameweek_num}{status_label} ({current_date.strftime('%b %d')} - {week_end.strftime('%b %d')})"
         })
         current_date = week_end + timedelta(days=1)
         gameweek_num += 1
