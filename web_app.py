@@ -762,9 +762,9 @@ def get_game_schedule():
         
         games = cur.fetchall()
         
-        # Get player info
+        # Get player info including position
         cur.execute(f"""
-            SELECT p.player_id, p.player_name, p.team_id, t.team_abbreviation as team
+            SELECT p.player_id, p.player_name, p.team_id, p.position, t.team_abbreviation as team
             FROM players p
             JOIN teams t ON p.team_id = t.team_id
             WHERE p.player_id IN ({placeholders})
@@ -923,28 +923,22 @@ def get_game_schedule():
                     
                     # Get player name and position from players_dict
                     if player_id in players_dict:
+                        # Get position from players_dict
+                        player_position = players_dict[player_id].get('position', '')
+                        
                         projection = {
                             'player_id': player_id,
                             'player_name': players_dict[player_id]['player_name'],
                             'team': players_dict[player_id]['team'],
+                            'position': player_position,
                             'projected_fp': round(avg_fp, 1),
                             'avg_last_5': round(avg_fp, 1),
                             'total_fp': round(total_fp, 1),
                             'is_starter': False
                         }
                         
-                        # Get position from game players to determine BC or FC
-                        player_position = None
-                        for game in day_data['games']:
-                            for p in game['players']:
-                                if p['player_id'] == player_id:
-                                    player_position = p.get('position', '')
-                                    break
-                            if player_position:
-                                break
-                        
-                        # Categorize by position
-                        if player_position == 'Backcourt' or 'G' in str(player_position):
+                        # Categorize by position (G = Backcourt, F/C = Frontcourt)
+                        if player_position and 'G' in player_position:
                             backcourt_players.append(projection)
                         else:
                             frontcourt_players.append(projection)
