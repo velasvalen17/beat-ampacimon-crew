@@ -911,30 +911,73 @@ def get_game_schedule():
                         'total_fp': row['total_fp']
                     }
                 
-                # Calculate total projected FP and store individual projections
+                # Calculate total projected FP and store individual projections with position info
+                backcourt_players = []
+                frontcourt_players = []
+                
                 for player_id in players_on_day:
                     stats = player_stats.get(player_id, {'avg_last_5': 0, 'total_fp': 0})
                     avg_fp = stats['avg_last_5']
                     total_fp = stats['total_fp']
                     day_data['projected_fp'] += avg_fp
                     
-                    # Get player name from players_dict
+                    # Get player name and position from players_dict
                     if player_id in players_dict:
-                        day_data['player_projections'].append({
+                        projection = {
                             'player_id': player_id,
                             'player_name': players_dict[player_id]['player_name'],
                             'team': players_dict[player_id]['team'],
                             'projected_fp': round(avg_fp, 1),
                             'avg_last_5': round(avg_fp, 1),
-                            'total_fp': round(total_fp, 1)
-                        })
+                            'total_fp': round(total_fp, 1),
+                            'is_starter': False
+                        }
+                        
+                        # Get position from game players to determine BC or FC
+                        player_position = None
+                        for game in day_data['games']:
+                            for p in game['players']:
+                                if p['player_id'] == player_id:
+                                    player_position = p.get('position', '')
+                                    break
+                            if player_position:
+                                break
+                        
+                        # Categorize by position
+                        if player_position == 'Backcourt' or 'G' in str(player_position):
+                            backcourt_players.append(projection)
+                        else:
+                            frontcourt_players.append(projection)
+                        
+                        day_data['player_projections'].append(projection)
                 
-                # Sort players by avg_last_5 first, then total_fp as tiebreaker
-                day_data['player_projections'].sort(key=lambda x: (x['avg_last_5'], x['total_fp']), reverse=True)
+                # Sort each position group by avg_last_5, then total_fp
+                backcourt_players.sort(key=lambda x: (x['avg_last_5'], x['total_fp']), reverse=True)
+                frontcourt_players.sort(key=lambda x: (x['avg_last_5'], x['total_fp']), reverse=True)
                 
-                # Mark top 5 players as starters
-                for i, proj in enumerate(day_data['player_projections']):
-                    proj['is_starter'] = i < 5
+                # Select starters respecting position constraints (2-3 BC, 2-3 FC, total 5)
+                # Try 3 BC + 2 FC vs 2 BC + 3 FC and pick the combination with higher total FP
+                option1_bc = backcourt_players[:3]
+                option1_fc = frontcourt_players[:2]
+                option1_total = sum(p['avg_last_5'] for p in option1_bc) + sum(p['avg_last_5'] for p in option1_fc)
+                
+                option2_bc = backcourt_players[:2]
+                option2_fc = frontcourt_players[:3]
+                option2_total = sum(p['avg_last_5'] for p in option2_bc) + sum(p['avg_last_5'] for p in option2_fc)
+                
+                # Choose the option with higher total FP
+                if option1_total >= option2_total:
+                    starters = option1_bc + option1_fc
+                else:
+                    starters = option2_bc + option2_fc
+                
+                # Mark selected players as starters
+                starter_ids = {p['player_id'] for p in starters}
+                for proj in day_data['player_projections']:
+                    proj['is_starter'] = proj['player_id'] in starter_ids
+                
+                # Sort all projections for display (starters first, then by FP)
+                day_data['player_projections'].sort(key=lambda x: (not x['is_starter'], -x['avg_last_5'], -x['total_fp']))
                 
                 day_data['projected_fp'] = round(day_data['projected_fp'], 1)
         
