@@ -869,9 +869,9 @@ def get_game_schedule():
             day_data['player_projections'] = []
             
             if players_on_day:
-                # Get recent stats for these players
+                # Get recent stats and total stats for these players
                 player_ids_str = ','.join([str(pid) for pid in players_on_day])
-                recent_stats_query = f"""
+                player_stats_query = f"""
                     WITH recent_stats AS (
                         SELECT 
                             player_id,
@@ -879,22 +879,43 @@ def get_game_schedule():
                             ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY game_date DESC) as rn
                         FROM player_game_stats
                         WHERE player_id IN ({player_ids_str})
+                    ),
+                    recent_avg AS (
+                        SELECT 
+                            player_id,
+                            AVG(fantasy_points) as avg_last_5
+                        FROM recent_stats
+                        WHERE rn <= 5
+                        GROUP BY player_id
+                    ),
+                    total_stats AS (
+                        SELECT
+                            player_id,
+                            SUM(fantasy_points) as total_fp
+                        FROM player_game_stats
+                        WHERE player_id IN ({player_ids_str})
+                        GROUP BY player_id
                     )
                     SELECT 
-                        player_id,
-                        AVG(fantasy_points) as avg_fp
-                    FROM recent_stats
-                    WHERE rn <= 7
-                    GROUP BY player_id
+                        r.player_id,
+                        COALESCE(r.avg_last_5, 0) as avg_last_5,
+                        COALESCE(t.total_fp, 0) as total_fp
+                    FROM recent_avg r
+                    LEFT JOIN total_stats t ON r.player_id = t.player_id
                 """
                 
-                player_avgs = {}
-                for row in conn.execute(recent_stats_query).fetchall():
-                    player_avgs[row['player_id']] = row['avg_fp']
+                player_stats = {}
+                for row in conn.execute(player_stats_query).fetchall():
+                    player_stats[row['player_id']] = {
+                        'avg_last_5': row['avg_last_5'],
+                        'total_fp': row['total_fp']
+                    }
                 
                 # Calculate total projected FP and store individual projections
                 for player_id in players_on_day:
-                    avg_fp = player_avgs.get(player_id, 0)
+                    stats = player_stats.get(player_id, {'avg_last_5': 0, 'total_fp': 0})
+                    avg_fp = stats['avg_last_5']
+                    total_fp = stats['total_fp']
                     day_data['projected_fp'] += avg_fp
                     
                     # Get player name from players_dict
@@ -903,11 +924,18 @@ def get_game_schedule():
                             'player_id': player_id,
                             'player_name': players_dict[player_id]['player_name'],
                             'team': players_dict[player_id]['team'],
-                            'projected_fp': round(avg_fp, 1)
+                            'projected_fp': round(avg_fp, 1),
+                            'avg_last_5': round(avg_fp, 1),
+                            'total_fp': round(total_fp, 1)
                         })
                 
-                # Sort players by projected FP descending
-                day_data['player_projections'].sort(key=lambda x: x['projected_fp'], reverse=True)
+                # Sort players by avg_last_5 first, then total_fp as tiebreaker
+                day_data['player_projections'].sort(key=lambda x: (x['avg_last_5'], x['total_fp']), reverse=True)
+                
+                # Mark top 5 players as starters
+                for i, proj in enumerate(day_data['player_projections']):
+                    proj['is_starter'] = i < 5
+                
                 day_data['projected_fp'] = round(day_data['projected_fp'], 1)
         
         conn.close()

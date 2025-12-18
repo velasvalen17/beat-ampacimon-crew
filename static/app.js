@@ -917,14 +917,16 @@ function buildScheduleHTML(data, playersList, recommendation = null) {
         const projectedFP = dayData.projected_fp || 0;
         const playerProjections = dayData.player_projections || [];
         
-        // Create tooltip with player breakdown
+        // Create tooltip with player breakdown and starter indicators
         let tooltipHTML = '';
         if (playerProjections.length > 0) {
             tooltipHTML = '<div class="fp-tooltip"><div class="fp-tooltip-header">Projected Points:</div>';
             playerProjections.forEach(pp => {
-                tooltipHTML += `<div class="fp-tooltip-row">${pp.player_name} (${pp.team}): <strong>${pp.projected_fp} FP</strong></div>`;
+                const starterIcon = pp.is_starter ? '👑 ' : '';
+                const starterClass = pp.is_starter ? 'starter-player' : '';
+                tooltipHTML += `<div class="fp-tooltip-row ${starterClass}">${starterIcon}${pp.player_name} (${pp.team}): <strong>${pp.projected_fp} FP</strong></div>`;
             });
-            tooltipHTML += '</div>';
+            tooltipHTML += '<div class="fp-tooltip-footer">👑 = Top 5 starters (based on last 5 games avg + total FP)</div></div>';
         }
         
         html += `
@@ -1173,6 +1175,13 @@ function displayGameSchedule(data, selectedPlayers) {
         
         const dayData = data.games_by_day[day];
         const games = dayData.games || dayData;  // Handle both old and new format
+        const playerProjections = dayData.player_projections || [];
+        
+        // Create a map of player_id to projection data for quick lookup
+        const projectionMap = {};
+        playerProjections.forEach(proj => {
+            projectionMap[proj.player_id] = proj;
+        });
         
         games.forEach(game => {
             game.players.forEach(p => {
@@ -1180,10 +1189,12 @@ function displayGameSchedule(data, selectedPlayers) {
                 const playerData = selectedPlayers.find(sp => sp.player_id === p.player_id);
                 if (playerData) {
                     const position = playerData.position.includes('G') ? 'backcourt' : 'frontcourt';
+                    const projection = projectionMap[p.player_id];
                     if (!playersByPosition[position].some(existing => existing.player_id === p.player_id)) {
                         playersByPosition[position].push({
                             ...p,
-                            matchup: game.matchup
+                            matchup: game.matchup,
+                            is_starter: projection ? projection.is_starter : false
                         });
                     }
                 }
@@ -1251,17 +1262,21 @@ function displayGameSchedule(data, selectedPlayers) {
         const statusClass = isReady ? 'status-ready' : 'status-warning';
         const statusIcon = isReady ? '✓' : '⚠';
         
-        // Build player list for this day
+        // Build player list for this day with starter indicators
         let playerList = [];
         if (dayPlayerDetails[day].backcourt.length > 0) {
-            playerList.push(...dayPlayerDetails[day].backcourt.map(p => 
-                `<span class="player-chip bc">${p.player_name}</span>`
-            ));
+            playerList.push(...dayPlayerDetails[day].backcourt.map(p => {
+                const starterIcon = p.is_starter ? '👑 ' : '';
+                const starterClass = p.is_starter ? 'starter-chip' : '';
+                return `<span class="player-chip bc ${starterClass}">${starterIcon}${p.player_name}</span>`;
+            }));
         }
         if (dayPlayerDetails[day].frontcourt.length > 0) {
-            playerList.push(...dayPlayerDetails[day].frontcourt.map(p => 
-                `<span class="player-chip fc">${p.player_name}</span>`
-            ));
+            playerList.push(...dayPlayerDetails[day].frontcourt.map(p => {
+                const starterIcon = p.is_starter ? '👑 ' : '';
+                const starterClass = p.is_starter ? 'starter-chip' : '';
+                return `<span class="player-chip fc ${starterClass}">${starterIcon}${p.player_name}</span>`;
+            }));
         }
         
         html += `
