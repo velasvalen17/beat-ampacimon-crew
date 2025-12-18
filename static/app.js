@@ -1262,20 +1262,31 @@ function displayGameSchedule(data, selectedPlayers) {
         const statusClass = isReady ? 'status-ready' : 'status-warning';
         const statusIcon = isReady ? '✓' : '⚠';
         
-        // Build player list for this day with starter indicators
+        // Build player list for this day with starter indicators and FP average
+        const dayData = data.games_by_day[day];
+        const playerProjections = dayData.player_projections || [];
+        const projectionMap = {};
+        playerProjections.forEach(proj => {
+            projectionMap[proj.player_id] = proj;
+        });
+        
         let playerList = [];
         if (dayPlayerDetails[day].backcourt.length > 0) {
             playerList.push(...dayPlayerDetails[day].backcourt.map(p => {
                 const starterIcon = p.is_starter ? '👑 ' : '';
                 const starterClass = p.is_starter ? 'starter-chip' : '';
-                return `<span class="player-chip bc ${starterClass}">${starterIcon}${p.player_name}</span>`;
+                const projection = projectionMap[p.player_id];
+                const avgFP = projection ? ` (${projection.avg_last_5.toFixed(1)})` : '';
+                return `<span class="player-chip bc ${starterClass}">${starterIcon}${p.player_name}${avgFP}</span>`;
             }));
         }
         if (dayPlayerDetails[day].frontcourt.length > 0) {
             playerList.push(...dayPlayerDetails[day].frontcourt.map(p => {
                 const starterIcon = p.is_starter ? '👑 ' : '';
                 const starterClass = p.is_starter ? 'starter-chip' : '';
-                return `<span class="player-chip fc ${starterClass}">${starterIcon}${p.player_name}</span>`;
+                const projection = projectionMap[p.player_id];
+                const avgFP = projection ? ` (${projection.avg_last_5.toFixed(1)})` : '';
+                return `<span class="player-chip fc ${starterClass}">${starterIcon}${p.player_name}${avgFP}</span>`;
             }));
         }
         
