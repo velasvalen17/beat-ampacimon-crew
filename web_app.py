@@ -955,26 +955,41 @@ def get_game_schedule():
                 backcourt_players.sort(key=lambda x: (x['avg_last_5'], x['total_fp']), reverse=True)
                 frontcourt_players.sort(key=lambda x: (x['avg_last_5'], x['total_fp']), reverse=True)
                 
-                # Select starters respecting position constraints (2-3 BC, 2-3 FC, total 5)
-                # Try 3 BC + 2 FC vs 2 BC + 3 FC and pick the combination with higher total FP
-                option1_bc = backcourt_players[:3]
-                option1_fc = frontcourt_players[:2]
-                option1_total = sum(p['avg_last_5'] for p in option1_bc) + sum(p['avg_last_5'] for p in option1_fc)
+                # Only assign crowns if we have 5+ players total (otherwise there's no choice)
+                total_players = len(backcourt_players) + len(frontcourt_players)
                 
-                option2_bc = backcourt_players[:2]
-                option2_fc = frontcourt_players[:3]
-                option2_total = sum(p['avg_last_5'] for p in option2_bc) + sum(p['avg_last_5'] for p in option2_fc)
-                
-                # Choose the option with higher total FP
-                if option1_total >= option2_total:
-                    starters = option1_bc + option1_fc
-                else:
-                    starters = option2_bc + option2_fc
-                
-                # Mark selected players as starters
-                starter_ids = {p['player_id'] for p in starters}
-                for proj in day_data['player_projections']:
-                    proj['is_starter'] = proj['player_id'] in starter_ids
+                if total_players >= 5:
+                    # Select starters respecting position constraints (2-3 BC, 2-3 FC, total 5)
+                    # Try 3 BC + 2 FC vs 2 BC + 3 FC and pick the combination with higher total FP
+                    starters = []
+                    
+                    # Option 1: 3 BC + 2 FC (if we have enough players)
+                    if len(backcourt_players) >= 3 and len(frontcourt_players) >= 2:
+                        option1_bc = backcourt_players[:3]
+                        option1_fc = frontcourt_players[:2]
+                        option1_total = sum(p['avg_last_5'] for p in option1_bc) + sum(p['avg_last_5'] for p in option1_fc)
+                    else:
+                        option1_total = -1
+                    
+                    # Option 2: 2 BC + 3 FC (if we have enough players)
+                    if len(backcourt_players) >= 2 and len(frontcourt_players) >= 3:
+                        option2_bc = backcourt_players[:2]
+                        option2_fc = frontcourt_players[:3]
+                        option2_total = sum(p['avg_last_5'] for p in option2_bc) + sum(p['avg_last_5'] for p in option2_fc)
+                    else:
+                        option2_total = -1
+                    
+                    # Choose the valid option with higher total FP
+                    if option1_total >= 0 and option1_total >= option2_total:
+                        starters = backcourt_players[:3] + frontcourt_players[:2]
+                    elif option2_total >= 0:
+                        starters = backcourt_players[:2] + frontcourt_players[:3]
+                    # else: Not enough players in proper positions, no starters assigned
+                    
+                    # Mark selected players as starters
+                    starter_ids = {p['player_id'] for p in starters}
+                    for proj in day_data['player_projections']:
+                        proj['is_starter'] = proj['player_id'] in starter_ids
                 
                 # Sort all projections for display (starters first, then by FP)
                 day_data['player_projections'].sort(key=lambda x: (not x['is_starter'], -x['avg_last_5'], -x['total_fp']))
