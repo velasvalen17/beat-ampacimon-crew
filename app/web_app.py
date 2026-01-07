@@ -195,10 +195,14 @@ def get_team_schedule(gameweek):
     start_date = week_start.strftime('%Y-%m-%d')
     end_date = week_end.strftime('%Y-%m-%d')
     
+    # Get fantasy gameday schedule for this gameweek
+    all_gamedays = get_fantasy_gamedays()
+    gameweek_gamedays = [(gw, day, deadline) for gw, day, deadline in all_gamedays if gw == gameweek]
+    
     conn = get_db_connection()
     cur = conn.cursor()
     
-    # Get teams with game counts and their games
+    # Get teams with game counts and their games (including game_time)
     cur.execute("""
         SELECT 
             t.team_id,
@@ -209,8 +213,8 @@ def get_team_schedule(gameweek):
             GROUP_CONCAT(
                 CASE 
                     WHEN g.home_team_id = t.team_id 
-                    THEN g.game_date || '|vs|' || away.team_abbreviation
-                    ELSE g.game_date || '|@|' || home.team_abbreviation
+                    THEN g.game_date || '|' || COALESCE(g.game_time, '00:00') || '|vs|' || away.team_abbreviation
+                    ELSE g.game_date || '|' || COALESCE(g.game_time, '00:00') || '|@|' || home.team_abbreviation
                 END, ':::'
             ) as games_detail
         FROM teams t
@@ -225,16 +229,52 @@ def get_team_schedule(gameweek):
     teams = []
     for row in cur.fetchall():
         team = dict(row)
-        # Parse games detail
+        # Parse games detail and assign fantasy gameday
         games = []
         if team['games_detail']:
             for game_str in team['games_detail'].split(':::'):
                 parts = game_str.split('|')
-                if len(parts) == 3:
+                if len(parts) == 4:
+                    game_date_str = parts[0]
+                    game_time_str = parts[1]
+                    game_type = parts[2]  # 'vs' or '@'
+                    opponent = parts[3]
+                    
+                    # Parse game datetime
+                    try:
+                        game_dt = datetime.strptime(f"{game_date_str} {game_time_str}", '%Y-%m-%d %H:%M')
+                        game_dt = game_dt.replace(tzinfo=madrid_tz)
+                    except:
+                        game_dt = datetime.strptime(game_date_str, '%Y-%m-%d')
+                        game_dt = game_dt.replace(tzinfo=madrid_tz)
+                    
+                    # Find which fantasy gameday this game belongs to
+                    fantasy_gameday_label = None
+                    
+                    for i, (gw, day_num, deadline) in enumerate(gameweek_gamedays):
+                        next_deadline = gameweek_gamedays[i+1][2] if i+1 < len(gameweek_gamedays) else None
+                        
+                        if next_deadline is None:
+                            if game_dt >= deadline:
+                                fantasy_gameday_label = f"GW{gw} Day {day_num}"
+                                break
+                        else:
+                            if game_dt >= deadline and game_dt < next_deadline:
+                                fantasy_gameday_label = f"GW{gw} Day {day_num}"
+                                break
+                    
+                    if not fantasy_gameday_label and gameweek_gamedays:
+                        gw, day_num, _ = gameweek_gamedays[-1]
+                        fantasy_gameday_label = f"GW{gw} Day {day_num}"
+                    
+                    if not fantasy_gameday_label:
+                        fantasy_gameday_label = game_date_str
+                    
                     games.append({
-                        'date': parts[0],
-                        'type': parts[1],  # 'vs' or '@'
-                        'opponent': parts[2]
+                        'date': game_date_str,
+                        'type': game_type,
+                        'opponent': opponent,
+                        'fantasy_gameday': fantasy_gameday_label
                     })
         team['games'] = games
         del team['games_detail']

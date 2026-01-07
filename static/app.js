@@ -844,24 +844,22 @@ async function loadTeamSchedule() {
                     <div class="team-games">
             `;
             
-            // Group games by date
-            const gamesByDate = {};
+            // Group games by fantasy gameday
+            const gamesByGameday = {};
             team.games.forEach(game => {
-                if (!gamesByDate[game.date]) {
-                    gamesByDate[game.date] = [];
+                const gameday = game.fantasy_gameday || game.date;
+                if (!gamesByGameday[gameday]) {
+                    gamesByGameday[gameday] = [];
                 }
-                gamesByDate[game.date].push(game);
+                gamesByGameday[gameday].push(game);
             });
             
-            // Display games by date
-            Object.keys(gamesByDate).sort().forEach(date => {
-                const dateObj = new Date(date + 'T00:00:00');
-                const formattedDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' });
-                
+            // Display games by fantasy gameday
+            Object.keys(gamesByGameday).sort().forEach(gameday => {
                 html += `<div class="game-date-group">`;
-                html += `<span class="game-date">${formattedDate}</span>`;
+                html += `<span class="game-date">${gameday}</span>`;
                 
-                gamesByDate[date].forEach(game => {
+                gamesByGameday[gameday].forEach(game => {
                     const gameType = game.type === 'vs' ? '🏠 vs' : '✈️ @';
                     html += `<span class="game-matchup">${gameType} ${game.opponent}</span>`;
                 });
