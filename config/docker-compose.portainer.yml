@@ -3,7 +3,7 @@ version: '3.8'
 services:
   nba-fantasy:
     build:
-      context: https://github.com/velasvalen17/beat-ampacimon-crew.git#master
+      context: .
       dockerfile: Dockerfile
     image: beat-ampacimon-crew:latest
     container_name: beat-ampacimon-crew
