@@ -64,7 +64,6 @@
                 <div class="tabs">
                     <button class="tab-btn active" data-tab="schedule">Game Schedule</button>
                     <button class="tab-btn" data-tab="teams">Top Teams</button>
-                    <button class="tab-btn" data-tab="optimal">Optimal Team</button>
                 </div>
                 
                 <div id="schedule-tab" class="tab-content active">
@@ -78,10 +77,19 @@
                         <p>📊 Select a gameweek to see the top 10 teams with most games</p>
                     </div>
                 </div>
+            </div>
+        </div>
 
-                <div id="optimal-tab" class="tab-content">
-                    <div id="optimal-content" class="teams-placeholder">
-                        <p>🏆 Select a gameweek to see the optimal team</p>
+        <!-- Team Players Modal -->
+        <div id="team-players-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="team-players-title">Team Players</h3>
+                    <span class="close" onclick="document.getElementById('team-players-modal').style.display='none'">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div id="team-players-content">
+                        <!-- Team players will be loaded here -->
                     </div>
                 </div>
             </div>

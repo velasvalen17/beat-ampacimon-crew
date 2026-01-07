@@ -901,3 +901,19 @@ header .tagline {
     box-shadow: 0 2px 6px rgba(251, 191, 36, 0.4), 0 0 0 2px rgba(251, 191, 36, 0.2);
     position: relative;
 }
+
+/* Team Players Modal - wider for better player list display */
+#team-players-modal .modal-content {
+    max-width: 800px;
+}
+
+#team-players-modal .modal-body {
+    max-height: 70vh;
+}
+
+#team-players-modal h2 {
+    color: #0a2540;
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0;
+}

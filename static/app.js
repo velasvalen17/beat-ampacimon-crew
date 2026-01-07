@@ -134,10 +134,6 @@ function setupEventListeners() {
         if (activeTab && activeTab.dataset.tab === 'analysis') {
             analyzeRoster();
         }
-        // Auto-reload optimal team if on optimal tab
-        if (activeTab && activeTab.dataset.tab === 'optimal') {
-            loadOptimalTeam();
-        }
     });
 }
 
@@ -568,11 +564,6 @@ function switchTab(tabName) {
     if (tabName === 'teams') {
         loadTeamSchedule();
     }
-    
-    // Load optimal team if switching to optimal tab
-    if (tabName === 'optimal') {
-        loadOptimalTeam();
-    }
 }
 
 // Update game schedule for current roster
@@ -840,7 +831,7 @@ async function loadTeamSchedule() {
             const rosterIndicator = hasRosterPlayer ? ' <span class="roster-indicator">👤 Your Team</span>' : '';
             
             html += `
-                <div class="team-card ${rankClass} ${rosterClass}">
+                <div class="team-card ${rankClass} ${rosterClass}" onclick="showTeamPlayers(${team.team_id}, '${team.team_name}')" style="cursor: pointer;">
                     <div class="team-header">
                         <span class="team-rank">${rankEmoji}</span>
                         <span class="team-name">${team.team_name}${rosterIndicator}</span>
@@ -893,124 +884,100 @@ async function loadTeamSchedule() {
     }
 }
 
-// Load optimal team for selected gameweek
-async function loadOptimalTeam() {
-    const optimalContent = document.getElementById('optimal-content');
-    const gameweek = parseInt(document.getElementById('gameweek-selector').value);
+// Show team players modal when clicking on a team
+async function showTeamPlayers(teamId, teamName) {
+    const modal = document.getElementById('team-players-modal');
+    const modalBody = modal.querySelector('.modal-body');
     
-    optimalContent.innerHTML = '<div class="loading"><div class="spinner"></div><p>Finding optimal team...</p></div>';
+    modal.style.display = 'block';
+    modal.querySelector('h2').textContent = `${teamName} - Players`;
+    modalBody.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading team players...</p></div>';
     
     try {
-        const response = await fetch(`/api/optimal_team/${gameweek}`);
+        const response = await fetch(`/api/team_players/${teamId}`);
         const data = await response.json();
         
         if (data.error) {
-            optimalContent.innerHTML = `<p style="color: #ff4757;">${data.error}</p>`;
+            modalBody.innerHTML = `<p style="color: #ff4757;">${data.error}</p>`;
             return;
         }
         
-        let html = `
-            <div style="margin-bottom: 20px;">
-                <h3 style="margin: 0 0 10px 0;">🏆 Optimal Team - Gameweek ${data.gameweek}</h3>
-                <p style="color: #666; font-size: 0.9rem; margin: 5px 0;">${data.date_range}</p>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
-                    <div style="background: #e8f5e9; padding: 15px; border-radius: 8px; text-align: center;">
-                        <div style="font-size: 0.85rem; color: #666; margin-bottom: 5px;">Total Salary</div>
-                        <div style="font-size: 1.5rem; font-weight: bold; color: #2e7d32;">$${data.total_salary}M</div>
-                        <div style="font-size: 0.8rem; color: #666; margin-top: 3px;">of $100M</div>
-                    </div>
-                    <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; text-align: center;">
-                        <div style="font-size: 0.85rem; color: #666; margin-bottom: 5px;">Projected Points</div>
-                        <div style="font-size: 1.5rem; font-weight: bold; color: #1565c0;">${data.total_projected_fp} FP</div>
-                        <div style="font-size: 0.8rem; color: #666; margin-top: 3px;">for gameweek</div>
-                    </div>
-                    <div style="background: #fff3e0; padding: 15px; border-radius: 8px; text-align: center;">
-                        <div style="font-size: 0.85rem; color: #666; margin-bottom: 5px;">Team Balance</div>
-                        <div style="font-size: 1.5rem; font-weight: bold; color: #e65100;">${data.backcourt_count} BC / ${data.frontcourt_count} FC</div>
-                        <div style="font-size: 0.8rem; color: #666; margin-top: 3px;">10 players total</div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        // Separate backcourt and frontcourt
-        const backcourt = data.optimal_team.filter(p => p.position.includes('G'));
-        const frontcourt = data.optimal_team.filter(p => !p.position.includes('G'));
+        let html = '';
         
         // Display backcourt
-        html += `
-            <div style="margin-bottom: 25px;">
-                <h4 style="color: #1565c0; margin-bottom: 15px;">🔵 Backcourt (${backcourt.length} players)</h4>
-                <div style="display: grid; gap: 12px;">
-        `;
-        
-        backcourt.forEach(player => {
-            const avgFp = player.avg_fp ? player.avg_fp.toFixed(1) : 'N/A';
-            const projFp = player.projected_total_fp ? player.projected_total_fp.toFixed(1) : 'N/A';
+        if (data.backcourt && data.backcourt.length > 0) {
             html += `
-                <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #2196f3; display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 5px;">${player.player_name}</div>
-                        <div style="font-size: 0.85rem; color: #666;">
-                            ${player.team} | ${player.position} | $${player.salary}M
+                <div style="margin-bottom: 25px;">
+                    <h3 style="color: #2196f3; margin-bottom: 15px; border-bottom: 2px solid #2196f3; padding-bottom: 8px;">🔵 Backcourt (${data.backcourt.length} players)</h3>
+                    <div style="display: grid; gap: 12px;">
+            `;
+            
+            data.backcourt.forEach(player => {
+                const avgFp = player.fantasy_avg ? player.fantasy_avg.toFixed(1) : 'N/A';
+                const avgMin = player.avg_minutes ? player.avg_minutes.toFixed(1) : 'N/A';
+                html += `
+                    <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #2196f3; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <div>
+                            <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 5px;">${player.player_name}</div>
+                            <div style="font-size: 0.85rem; color: #666;">
+                                ${player.position} | $${player.salary}M
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-weight: 600; color: #2196f3; font-size: 1.2rem;">${avgFp} FP/G</div>
+                            <div style="font-size: 0.8rem; color: #666;">${avgMin} min/g</div>
+                            <div style="font-size: 0.75rem; color: #999; margin-top: 2px;">${player.games_played} games</div>
                         </div>
                     </div>
-                    <div style="text-align: right;">
-                        <div style="font-weight: 600; color: #2196f3; font-size: 1.1rem;">${projFp} FP</div>
-                        <div style="font-size: 0.8rem; color: #666;">${avgFp} FP/G × ${player.games_in_gameweek} games</div>
-                        <div style="font-size: 0.75rem; color: #999; margin-top: 2px;">${player.avg_minutes.toFixed(1)} min/g</div>
-                    </div>
-                </div>
-            `;
-        });
-        
-        html += `</div></div>`;
+                `;
+            });
+            
+            html += `</div></div>`;
+        }
         
         // Display frontcourt
-        html += `
-            <div>
-                <h4 style="color: #d32f2f; margin-bottom: 15px;">🔴 Frontcourt (${frontcourt.length} players)</h4>
-                <div style="display: grid; gap: 12px;">
-        `;
-        
-        frontcourt.forEach(player => {
-            const avgFp = player.avg_fp ? player.avg_fp.toFixed(1) : 'N/A';
-            const projFp = player.projected_total_fp ? player.projected_total_fp.toFixed(1) : 'N/A';
+        if (data.frontcourt && data.frontcourt.length > 0) {
             html += `
-                <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #f44336; display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 5px;">${player.player_name}</div>
-                        <div style="font-size: 0.85rem; color: #666;">
-                            ${player.team} | ${player.position} | $${player.salary}M
+                <div>
+                    <h3 style="color: #f44336; margin-bottom: 15px; border-bottom: 2px solid #f44336; padding-bottom: 8px;">🔴 Frontcourt (${data.frontcourt.length} players)</h3>
+                    <div style="display: grid; gap: 12px;">
+            `;
+            
+            data.frontcourt.forEach(player => {
+                const avgFp = player.fantasy_avg ? player.fantasy_avg.toFixed(1) : 'N/A';
+                const avgMin = player.avg_minutes ? player.avg_minutes.toFixed(1) : 'N/A';
+                html += `
+                    <div style="background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #f44336; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <div>
+                            <div style="font-weight: 600; font-size: 1.05rem; margin-bottom: 5px;">${player.player_name}</div>
+                            <div style="font-size: 0.85rem; color: #666;">
+                                ${player.position} | $${player.salary}M
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-weight: 600; color: #f44336; font-size: 1.2rem;">${avgFp} FP/G</div>
+                            <div style="font-size: 0.8rem; color: #666;">${avgMin} min/g</div>
+                            <div style="font-size: 0.75rem; color: #999; margin-top: 2px;">${player.games_played} games</div>
                         </div>
                     </div>
-                    <div style="text-align: right;">
-                        <div style="font-weight: 600; color: #f44336; font-size: 1.1rem;">${projFp} FP</div>
-                        <div style="font-size: 0.8rem; color: #666;">${avgFp} FP/G × ${player.games_in_gameweek} games</div>
-                        <div style="font-size: 0.75rem; color: #999; margin-top: 2px;">${player.avg_minutes.toFixed(1)} min/g</div>
-                    </div>
-                </div>
-            `;
-        });
+                `;
+            });
+            
+            html += `</div></div>`;
+        }
         
-        html += `</div></div>`;
+        if (!data.backcourt.length && !data.frontcourt.length) {
+            html = '<p style="text-align: center; color: #666; padding: 20px;">No player data available for this team.</p>';
+        }
         
-        // Add note about methodology
-        html += `
-            <div style="margin-top: 25px; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 3px solid #6c757d;">
-                <div style="font-weight: 600; margin-bottom: 8px;">📋 Methodology:</div>
-                <ul style="margin: 0; padding-left: 20px; font-size: 0.9rem; color: #666;">
-                    <li>Based on last 7 games performance (minimum 3 games, 18+ min/g)</li>
-                    <li>Only players with 2+ games in the selected gameweek</li>
-                    <li>Projected points = Average FP/G × Games in gameweek</li>
-                    <li>Optimized within $100M salary cap</li>
-                </ul>
-            </div>
-        `;
-        
-        optimalContent.innerHTML = html;
+        modalBody.innerHTML = html;
     } catch (error) {
-        console.error('Error loading optimal team:', error);
-        optimalContent.innerHTML = '<p style="color: #ff4757;">Failed to load optimal team. Please try again.</p>';
+        console.error('Error loading team players:', error);
+        modalBody.innerHTML = '<p style="color: #ff4757;">Failed to load team players. Please try again.</p>';
     }
+}
+
+// Close team players modal
+function closeTeamPlayersModal() {
+    document.getElementById('team-players-modal').style.display = 'none';
 }

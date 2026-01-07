@@ -552,178 +552,88 @@ def get_game_schedule():
         traceback.print_exc()
         return jsonify({'error': str(e), 'games_by_day': {}}), 500
 
-@app.route('/api/optimal_team/<int:gameweek>', methods=['GET'])
-def get_optimal_team(gameweek):
-    """Build the optimal 10-player team for a gameweek based on last 7 games performance"""
+@app.route('/api/team_players/<int:team_id>', methods=['GET'])
+def get_team_players(team_id):
+    """Get all players from a specific team with their fantasy stats"""
     try:
         conn = get_db_connection()
+        cur = conn.cursor()
         
-        # Get gameweek date range
-        gameweek_query = """
-            SELECT start_date, end_date 
-            FROM gameweeks 
-            WHERE week_number = ?
-        """
-        gw_row = conn.execute(gameweek_query, (gameweek,)).fetchone()
-        if not gw_row:
-            return jsonify({'error': 'Invalid gameweek'}), 400
+        # Get team info
+        cur.execute("""
+            SELECT team_name, team_abbreviation 
+            FROM teams 
+            WHERE team_id = ?
+        """, (team_id,))
         
-        start_date = gw_row['start_date']
-        end_date = gw_row['end_date']
+        team_row = cur.fetchone()
+        if not team_row:
+            conn.close()
+            return jsonify({'error': 'Team not found'}), 404
         
-        # Get all players with their last 7 games stats and games in this gameweek
-        query = """
-            WITH recent_stats AS (
+        team_info = dict(team_row)
+        
+        # Get players with fantasy averages from last 30 games (or all games if less)
+        cur.execute("""
+            WITH player_recent_games AS (
                 SELECT 
-                    player_id,
-                    fantasy_points,
-                    minutes_played,
-                    game_date,
-                    ROW_NUMBER() OVER (PARTITION BY player_id ORDER BY game_date DESC) as rn
-                FROM player_game_stats
-                WHERE minutes_played > 0
+                    pgs.player_id,
+                    pgs.points,
+                    pgs.rebounds,
+                    pgs.assists,
+                    pgs.blocks,
+                    pgs.steals,
+                    pgs.minutes_played,
+                    pgs.game_date,
+                    ROW_NUMBER() OVER (PARTITION BY pgs.player_id ORDER BY pgs.game_date DESC) as rn
+                FROM player_game_stats pgs
             ),
-            player_averages AS (
+            player_stats AS (
                 SELECT 
                     player_id,
-                    AVG(fantasy_points) as avg_fp,
-                    AVG(minutes_played) as avg_minutes,
-                    COUNT(*) as games_played
-                FROM recent_stats
-                WHERE rn <= 7
+                    COUNT(*) as games_played,
+                    AVG(points + rebounds + 2 * assists + 3 * blocks + 3 * steals) as fantasy_avg,
+                    AVG(minutes_played) as avg_minutes
+                FROM player_recent_games
+                WHERE rn <= 30
                 GROUP BY player_id
-                HAVING COUNT(*) >= 3 AND AVG(minutes_played) >= 18
-            ),
-            gameweek_games AS (
-                SELECT 
-                    p.player_id,
-                    COUNT(DISTINCT g.game_id) as games_in_gameweek
-                FROM players p
-                JOIN teams t ON p.team_id = t.team_id
-                JOIN games g ON (g.home_team_id = t.team_id OR g.away_team_id = t.team_id)
-                WHERE g.game_date >= ? AND g.game_date <= ?
-                GROUP BY p.player_id
             )
             SELECT 
                 p.player_id,
                 p.player_name,
                 p.position,
                 p.salary,
-                t.team_abbreviation as team,
-                pa.avg_fp,
-                pa.avg_minutes,
-                pa.games_played as recent_games,
-                COALESCE(gg.games_in_gameweek, 0) as games_in_gameweek,
-                pa.avg_fp * COALESCE(gg.games_in_gameweek, 0) as projected_total_fp
+                COALESCE(ps.fantasy_avg, 0) as fantasy_avg,
+                COALESCE(ps.avg_minutes, 0) as avg_minutes,
+                COALESCE(ps.games_played, 0) as games_played
             FROM players p
-            JOIN teams t ON p.team_id = t.team_id
-            JOIN player_averages pa ON p.player_id = pa.player_id
-            LEFT JOIN gameweek_games gg ON p.player_id = gg.player_id
-            WHERE COALESCE(gg.games_in_gameweek, 0) >= 2
-            ORDER BY projected_total_fp DESC
-        """
+            LEFT JOIN player_stats ps ON p.player_id = ps.player_id
+            WHERE p.team_id = ?
+            ORDER BY 
+                CASE 
+                    WHEN p.position LIKE '%G%' THEN 0 
+                    ELSE 1 
+                END,
+                ps.fantasy_avg DESC NULLS LAST
+        """, (team_id,))
         
-        cursor = conn.execute(query, (start_date, end_date))
-        all_candidates = [dict(row) for row in cursor.fetchall()]
+        players = [dict(row) for row in cur.fetchall()]
         conn.close()
         
-        # Filter out players with null or zero salary
-        all_candidates = [p for p in all_candidates if p.get('salary') and p['salary'] > 0]
-        
-        if not all_candidates:
-            return jsonify({'error': 'No eligible players found', 'optimal_team': []})
-        
-        # Separate by position (prioritize primary position to avoid duplicates)
-        # Players with dual positions (G-F, F-G, C-F) go to their first listed position
-        backcourt = []
-        frontcourt = []
-        
-        for p in all_candidates:
-            pos = p['position']
-            # Check first character of position to determine primary
-            if pos.startswith('G'):
-                backcourt.append(p)
-            elif pos.startswith('F') or pos.startswith('C'):
-                frontcourt.append(p)
-            elif 'G' in pos and ('F' in pos or 'C' in pos):
-                # Dual position player - prefer backcourt if G comes first, otherwise frontcourt
-                if pos.index('G') < pos.index('F' if 'F' in pos else 'C'):
-                    backcourt.append(p)
-                else:
-                    frontcourt.append(p)
-            elif 'G' in pos:
-                backcourt.append(p)
-            else:
-                frontcourt.append(p)
-        
-        # Smart optimization: Use a mixed strategy
-        # 1. Take top 2 from each position (best performers)
-        # 2. Fill remaining slots with best value players that fit budget
-        budget = 100.0
-        selected_backcourt = []
-        selected_frontcourt = []
-        
-        # Step 1: Take top 2 performers from each position group
-        for i in range(min(2, len(backcourt))):
-            selected_backcourt.append(backcourt[i])
-        for i in range(min(2, len(frontcourt))):
-            selected_frontcourt.append(frontcourt[i])
-        
-        # Step 2: Fill remaining slots, prioritizing by value (FP per $ spent)
-        remaining_bc = backcourt[len(selected_backcourt):]
-        remaining_fc = frontcourt[len(selected_frontcourt):]
-        
-        # Calculate value ratio for remaining players
-        for p in remaining_bc:
-            p['value_ratio'] = p['projected_total_fp'] / p['salary'] if p['salary'] > 0 else 0
-        for p in remaining_fc:
-            p['value_ratio'] = p['projected_total_fp'] / p['salary'] if p['salary'] > 0 else 0
-        
-        # Sort by value ratio
-        remaining_bc.sort(key=lambda x: x['value_ratio'], reverse=True)
-        remaining_fc.sort(key=lambda x: x['value_ratio'], reverse=True)
-        
-        # Fill remaining slots
-        bc_idx = fc_idx = 0
-        while len(selected_backcourt) < 5 or len(selected_frontcourt) < 5:
-            current_total = sum(p['salary'] for p in selected_backcourt + selected_frontcourt)
-            added_any = False
-            
-            # Try to add BC if needed
-            if len(selected_backcourt) < 5 and bc_idx < len(remaining_bc):
-                if current_total + remaining_bc[bc_idx]['salary'] <= budget:
-                    selected_backcourt.append(remaining_bc[bc_idx])
-                    added_any = True
-                bc_idx += 1
-            
-            # Try to add FC if needed
-            if len(selected_frontcourt) < 5 and fc_idx < len(remaining_fc):
-                current_total = sum(p['salary'] for p in selected_backcourt + selected_frontcourt)
-                if current_total + remaining_fc[fc_idx]['salary'] <= budget:
-                    selected_frontcourt.append(remaining_fc[fc_idx])
-                    added_any = True
-                fc_idx += 1
-            
-            # Break if we can't add any more players
-            if not added_any and bc_idx >= len(remaining_bc) and fc_idx >= len(remaining_fc):
-                break
-        
-        optimal_team = selected_backcourt + selected_frontcourt
-        total_salary = sum(p['salary'] for p in optimal_team)
-        total_projected_fp = sum(p['projected_total_fp'] for p in optimal_team)
+        # Separate into BC and FC
+        backcourt = [p for p in players if 'G' in p['position']]
+        frontcourt = [p for p in players if 'G' not in p['position']]
         
         return jsonify({
-            'gameweek': gameweek,
-            'date_range': f"{start_date} to {end_date}",
-            'optimal_team': optimal_team,
-            'total_salary': round(total_salary, 1),
-            'total_projected_fp': round(total_projected_fp, 1),
-            'backcourt_count': len(selected_backcourt),
-            'frontcourt_count': len(selected_frontcourt)
+            'team_id': team_id,
+            'team_name': team_info['team_name'],
+            'team_abbreviation': team_info['team_abbreviation'],
+            'backcourt': backcourt,
+            'frontcourt': frontcourt
         })
     
     except Exception as e:
-        print(f"Error in get_optimal_team: {str(e)}")
+        print(f"Error in get_team_players: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
