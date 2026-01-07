@@ -5,7 +5,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: beat-ampacimon-crew:latest
     container_name: beat-ampacimon-crew
     ports:
       - "5000:5000"
