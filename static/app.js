@@ -890,7 +890,7 @@ async function showTeamPlayers(teamId, teamName) {
     const modalBody = modal.querySelector('.modal-body');
     
     modal.style.display = 'block';
-    modal.querySelector('h2').textContent = `${teamName} - Players`;
+    modal.querySelector('h3').textContent = `${teamName} - Players`;
     modalBody.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading team players...</p></div>';
     
     try {
