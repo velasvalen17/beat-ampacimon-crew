@@ -11,7 +11,11 @@ import itertools
 
 import os
 
-app = Flask(__name__)
+# Set template and static folders relative to project root
+template_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates')
+static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static')
+
+app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
 DB_PATH = os.environ.get('DB_PATH', '/home/velasvalen17/myproject/nba_fantasy.db')
 
 def get_db_connection():
