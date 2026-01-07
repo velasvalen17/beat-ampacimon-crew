@@ -112,6 +112,7 @@ def get_players():
             p.player_name,
             p.position,
             p.salary,
+            p.team_id,
             t.team_abbreviation as team,
             COALESCE(pfs.fantasy_avg, 0) as fantasy_avg,
             COALESCE(pfs.games_played, 0) as games_played
