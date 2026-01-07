@@ -814,9 +814,19 @@ async function loadTeamSchedule() {
         const response = await fetch(`/api/team_schedule/${gameweek}`);
         const data = await response.json();
         
+        // Get team IDs from current roster
+        const rosterTeamIds = new Set();
+        const allRosterPlayers = [...currentRoster.backcourt, ...currentRoster.frontcourt]
+            .filter(p => p !== null && p !== undefined);
+        allRosterPlayers.forEach(player => {
+            if (player.team_id) {
+                rosterTeamIds.add(player.team_id);
+            }
+        });
+        
         let html = `
             <div class="teams-header">
-                <h3>🏆 Top 10 Teams - Gameweek ${data.gameweek}</h3>
+                <h3>🏆 All Teams - Gameweek ${data.gameweek}</h3>
                 <p style="color: #666; margin-bottom: 20px;">${data.date_range}</p>
             </div>
             <div class="teams-list">
@@ -825,12 +835,15 @@ async function loadTeamSchedule() {
         data.teams.forEach((team, index) => {
             const rankEmoji = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
             const rankClass = index < 3 ? 'top-three' : '';
+            const hasRosterPlayer = rosterTeamIds.has(team.team_id);
+            const rosterClass = hasRosterPlayer ? 'has-roster-player' : '';
+            const rosterIndicator = hasRosterPlayer ? ' <span class="roster-indicator">👤 Your Team</span>' : '';
             
             html += `
-                <div class="team-card ${rankClass}">
+                <div class="team-card ${rankClass} ${rosterClass}">
                     <div class="team-header">
                         <span class="team-rank">${rankEmoji}</span>
-                        <span class="team-name">${team.team_name}</span>
+                        <span class="team-name">${team.team_name}${rosterIndicator}</span>
                         <span class="team-abbr">${team.team_abbreviation}</span>
                         <span class="team-stats">
                             <strong>${team.game_days}</strong> ${team.game_days === 1 ? 'day' : 'days'} • 

@@ -219,7 +219,6 @@ def get_team_schedule(gameweek):
         WHERE g.game_date >= ? AND g.game_date <= ?
         GROUP BY t.team_id
         ORDER BY game_days DESC, total_games DESC
-        LIMIT 10
     """, [start_date, end_date])
     
     teams = []
