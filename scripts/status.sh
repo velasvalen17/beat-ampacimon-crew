@@ -6,18 +6,18 @@ echo "========================================"
 echo ""
 
 # Check if container is running
-if docker-compose ps | grep -q "Up"; then
+if docker-compose -f config/docker-compose.yml ps | grep -q "Up"; then
     echo "✅ Container is running"
 else
     echo "❌ Container is not running"
-    echo "   Start with: docker-compose up -d"
+    echo "   Start with: docker-compose -f config/docker-compose.yml up -d"
     exit 1
 fi
 
 echo ""
 echo "📊 Database Statistics:"
 echo "------------------------"
-docker-compose exec -T nba-fantasy sqlite3 /app/data/nba_fantasy.db <<SQL
+docker-compose -f config/docker-compose.yml exec -T nba-fantasy sqlite3 /app/data/nba_fantasy.db <<SQL
 .mode column
 .headers on
 SELECT 
@@ -35,7 +35,7 @@ SQL
 echo ""
 echo "📅 Recent Games (last 5):"
 echo "-------------------------"
-docker-compose exec -T nba-fantasy sqlite3 /app/data/nba_fantasy.db <<SQL
+docker-compose -f config/docker-compose.yml exec -T nba-fantasy sqlite3 /app/data/nba_fantasy.db <<SQL
 .mode column
 .headers on
 SELECT 
@@ -56,7 +56,7 @@ tail -n 1 logs/updates.log 2>/dev/null || echo "No updates logged yet"
 
 echo ""
 echo "Commands:"
-echo "  • View live logs:      docker-compose logs -f"
-echo "  • Run update now:      docker-compose exec nba-fantasy python3 /app/daily_update.py"
-echo "  • Restart container:   docker-compose restart"
-echo "  • Stop container:      docker-compose stop"
+echo "  • View live logs:      docker-compose -f config/docker-compose.yml logs -f"
+echo "  • Run update now:      docker-compose -f config/docker-compose.yml exec nba-fantasy python3 /app/daily_update.py"
+echo "  • Restart container:   docker-compose -f config/docker-compose.yml restart"
+echo "  • Stop container:      docker-compose -f config/docker-compose.yml stop"

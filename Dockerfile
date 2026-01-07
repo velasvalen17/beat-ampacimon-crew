@@ -16,9 +16,9 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application files
-COPY *.py .
-COPY *.sh .
-RUN chmod +x *.sh
+COPY app/ ./app/
+COPY scripts/ ./scripts/
+RUN chmod +x scripts/*.sh
 
 # Copy web application assets
 COPY templates/ ./templates/
@@ -29,9 +29,10 @@ RUN mkdir -p /app/data
 
 # Set up environment variable for database path
 ENV DB_PATH=/app/data/nba_fantasy.db
+ENV PYTHONPATH=/app
 
 # Copy cron job configuration
-COPY crontab /etc/cron.d/nba-updates
+COPY config/crontab /etc/cron.d/nba-updates
 RUN chmod 0644 /etc/cron.d/nba-updates && \
     crontab /etc/cron.d/nba-updates
 
@@ -41,11 +42,11 @@ RUN mkdir -p /var/log/nba-fantasy && \
     touch /var/log/cron.log
 
 # Initialize database on first run
-COPY docker-entrypoint.sh /docker-entrypoint.sh
+COPY scripts/docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
 # Expose Flask port
 EXPOSE 5000
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["./start-services.sh"]
+CMD ["./scripts/start-services.sh"]

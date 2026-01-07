@@ -2,7 +2,7 @@
 """Import full season schedule from NBA API"""
 
 from nba_api.stats.endpoints import scheduleleaguev2
-from database import get_connection
+from app.database import get_connection
 import pandas as pd
 from zoneinfo import ZoneInfo
 

@@ -2,9 +2,9 @@
 """Efficiently populate December player stats for current roster players only."""
 
 from datetime import datetime
-from populate_database import DatabasePopulator
+from scripts.populate_database import DatabasePopulator
 from nba_data_fetcher import NBADataFetcher
-from database import get_connection
+from app.database import get_connection
 
 def populate_december_stats():
     """Fetch stats only for players in the current rosters (much faster)."""

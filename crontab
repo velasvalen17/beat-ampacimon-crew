@@ -1,4 +1,0 @@
-# Run NBA Fantasy database update every day at 6 AM
-0 6 * * * cd /app && /usr/local/bin/python3 /app/daily_update.py >> /var/log/nba-fantasy/updates.log 2>&1
-
-# Empty line required at end of crontab

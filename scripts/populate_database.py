@@ -5,9 +5,9 @@ Supports incremental updates - only fetches new data on subsequent runs.
 """
 
 import sqlite3
-from database import init_database, get_connection, DB_PATH
+from app.database import init_database, get_connection, DB_PATH
 from nba_data_fetcher import NBADataFetcher
-from fantasy_calculator import FantasyCalculator
+from app.fantasy_calculator import FantasyCalculator
 from datetime import datetime, timedelta
 import time
 from typing import Optional, List, Dict

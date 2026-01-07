@@ -6,7 +6,7 @@ echo ""
 
 # Option 1: Run the daily update script
 echo "Running daily_update.py..."
-docker exec beat-ampacimon-crew python3 /app/daily_update.py
+docker exec beat-ampacimon-crew python3 /app/scripts/daily_update.py
 
 echo ""
 echo "✅ Update complete!"

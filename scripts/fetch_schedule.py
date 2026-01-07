@@ -2,7 +2,7 @@
 """Fetch only the game schedule for a date range"""
 
 from nba_data_fetcher import NBADataFetcher
-from database import get_connection
+from app.database import get_connection
 from datetime import datetime, timedelta
 import sys
 

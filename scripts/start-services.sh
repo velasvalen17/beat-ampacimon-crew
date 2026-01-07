@@ -21,4 +21,4 @@ exec gunicorn --bind 0.0.0.0:5000 \
     --access-logfile /var/log/nba-fantasy/access.log \
     --error-logfile /var/log/nba-fantasy/error.log \
     --log-level info \
-    web_app:app
+    app.web_app:app

@@ -2,7 +2,9 @@ version: '3.8'
 
 services:
   nba-fantasy:
-    build: .
+    build:
+      context: ..
+      dockerfile: Dockerfile
     container_name: beat-ampacimon-crew
     ports:
       - "5000:5000"  # Expose web application

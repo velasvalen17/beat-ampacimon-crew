@@ -66,7 +66,7 @@ else
     git commit -m "Initial commit - Beat Ampacimon Crew NBA Fantasy App
 
 - Flask web application with Ampacimon branding
-- Docker and docker-compose configuration
+- Docker and docker-compose -f config/docker-compose.yml configuration
 - Automated daily NBA data updates
 - SQLite database with player statistics
 - Real-time lineup optimization
@@ -138,7 +138,7 @@ echo "3. Name: beat-ampacimon-crew"
 echo "4. Build method: Repository"
 echo "5. Repository URL: $remote_url"
 echo "6. Repository reference: refs/heads/main"
-echo "7. Compose path: docker-compose.yml"
+echo "7. Compose path: docker-compose -f config/docker-compose.yml.yml"
 echo "8. Enable 'Automatic updates' (optional)"
 echo "9. Deploy the stack!"
 echo ""

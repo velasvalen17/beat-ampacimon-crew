@@ -3,7 +3,7 @@
 Generate optimal starting 5 for each day of the current gameweek
 """
 
-from database import get_connection
+from app.database import get_connection
 from datetime import datetime, timedelta
 
 # Optimal roster from team optimizer

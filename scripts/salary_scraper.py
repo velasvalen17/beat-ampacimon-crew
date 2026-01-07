@@ -13,7 +13,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 from selenium.common.exceptions import TimeoutException, NoSuchElementException
-from database import get_connection
+from app.database import get_connection
 
 class NBAFantasySalaryScraper:
     """Scraper for NBA Fantasy salary data."""

@@ -4,7 +4,7 @@ NBA Fantasy Team Optimizer with Salary Cap Constraints
 Builds optimal 10-player roster considering $100M salary cap
 """
 
-from database import get_connection
+from app.database import get_connection
 from collections import defaultdict
 
 def optimize_team_with_salary(max_salary=100.0, performance_weight=0.7):

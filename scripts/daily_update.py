@@ -4,8 +4,8 @@
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-from database import init_database, get_connection
-from populate_database import DatabasePopulator
+from app.database import init_database, get_connection
+from scripts.populate_database import DatabasePopulator
 
 def log(message):
     """Log message with timestamp."""
