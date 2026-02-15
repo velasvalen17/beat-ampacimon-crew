@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beat Ampacimon Crew - Fantasy NBA Optimizer</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="top-bar">
+        <div class="top-bar-content">
+            <img src="https://media.licdn.com/dms/image/v2/D4E0BAQF-NwcxYJyG7A/company-logo_200_200/company-logo_200_200/0/1692891594402/ampacimon_logo?e=2147483647&v=beta&t=qXAlftQweEpdeKDACCCWXdEeAv79_pBFR2INAzLMhlk" alt="Ampacimon" class="company-logo">
+            <span class="powered-by">Powered by Ampacimon Technology</span>
+        </div>
+    </div>
+    <div class="container">
+        <header>
+            <h1>Beat Ampacimon Crew</h1>
+            <p class="subtitle">Empower your fantasy roster with cutting-edge optimization technology</p>
+            <p class="tagline">🏀 Build your lineup and get AI-powered recommendations for next gameweek</p>
+        </header>
+
+        <div class="main-content">
+            <!-- Left Panel: Roster Builder -->
+            <div class="panel roster-builder">
+                <h2>Your Current Roster</h2>
+                
+                <div class="budget-input">
+                    <label for="available-budget">Available Budget ($M):</label>
+                    <input type="number" id="available-budget" step="0.1" value="1.7" min="0">
+                </div>
+
+                <div class="budget-input">
+                    <label for="gameweek-selector">Gameweek:</label>
+                    <select id="gameweek-selector">
+                        <!-- Options will be populated by JavaScript -->
+                    </select>
+                </div>
+
+                <div class="position-section">
+                    <h3>🔵 Backcourt (5 players)</h3>
+                    <div id="backcourt-roster" class="player-slots">
+                        <!-- Backcourt slots will be added here -->
+                    </div>
+                </div>
+
+                <div class="position-section">
+                    <h3>🔴 Frontcourt (5 players)</h3>
+                    <div id="frontcourt-roster" class="player-slots">
+                        <!-- Frontcourt slots will be added here -->
+                    </div>
+                </div>
+
+                <div class="roster-summary">
+                    <p><strong>Total Salary:</strong> $<span id="total-salary">0.0</span>M</p>
+                    <p><strong>Total Budget:</strong> $<span id="total-budget">0.0</span>M</p>
+                </div>
+
+                <button id="clear-roster-btn" class="secondary-btn">Clear Roster</button>
+            </div>
+
+            <!-- Right Panel: Tabbed Results -->
+            <div class="panel analysis-results">
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="schedule">Game Schedule</button>
+                    <button class="tab-btn" data-tab="teams">Top Teams</button>
+                </div>
+                
+                <div id="schedule-tab" class="tab-content active">
+                    <div id="schedule-content" class="schedule-placeholder">
+                        <p>📅 Select your roster to see the game schedule for the selected gameweek</p>
+                    </div>
+                </div>
+                
+                <div id="teams-tab" class="tab-content">
+                    <div id="teams-content" class="teams-placeholder">
+                        <p>📊 Select a gameweek to see the top 10 teams with most games</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Team Players Modal -->
+        <div id="team-players-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="team-players-title">Team Players</h3>
+                    <span class="close" onclick="document.getElementById('team-players-modal').style.display='none'">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div id="team-players-content">
+                        <!-- Team players will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Player Selection Modal -->
+        <div id="player-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Select Player</h3>
+                    <span class="close">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <input type="text" id="player-search" placeholder="Search players...">
+                    <div id="player-list" class="player-list">
+                        <!-- Players will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
